@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AJ Revetement — Assistant</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="brand">
+          <span class="brand-mark">AJ</span>
+          <div class="brand-text">
+            <h1>AJ Revetement</h1>
+            <p>Technical assistant</p>
+          </div>
+        </div>
+        <span class="status" id="status" aria-live="polite"></span>
+      </header>
+
+      <main class="chat-panel">
+        <div class="messages" id="messages" role="log" aria-relevant="additions">
+        </div>
+
+        <form class="composer" id="form" autocomplete="off">
+          <label class="sr-only" for="input">Your message</label>
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Ask a question…"
+            required
+          ></textarea>
+          <button type="submit" id="send">Send</button>
+        </form>
+      </main>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
