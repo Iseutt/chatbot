@@ -23,7 +23,15 @@ const publicDir = path.join(rootDir, "public");
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "512kb" }));
-app.use(express.static(publicDir));
+app.use(
+  express.static(publicDir, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith(".css")) {
+        res.setHeader("Cache-Control", "no-store, max-age=0");
+      }
+    },
+  })
+);
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 

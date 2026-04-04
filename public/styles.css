@@ -1,18 +1,21 @@
 :root {
-  --bg: #0f1419;
-  --panel: #1a222c;
-  --border: #2a3544;
-  --text: #e8edf4;
-  --muted: #8b9aad;
-  --accent: #c9a227;
-  --accent-dim: #a68520;
-  --user-bubble: #243040;
-  --bot-bubble: #1e2835;
-  --danger: #e85d5d;
-  /* AJ Revetement brand */
-  --primary: #116dff;
-  --primary-dim: #0d58cc;
-  --primary-text: #ffffff;
+  --color-primary: #8b1a1a;
+  --color-primary-hover: #a01e1e;
+  --color-logo-accent: #7a1515;
+  --color-background: #f5f0eb;
+  --color-surface: #ffffff;
+  --color-text-primary: #1a1a1a;
+  --color-text-on-red: #ffffff;
+
+  /* Derived from palette — borders, secondary text, chat bubbles */
+  --color-border: #e0d8cf;
+  --color-text-muted: #6e6863;
+  --color-user-bubble: #ebe4dc;
+  --color-bot-bubble: var(--color-surface);
+  --color-danger: var(--color-primary-hover);
+
+  --font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 *,
@@ -24,10 +27,22 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: "DM Sans", system-ui, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: var(--font-body);
+  background: var(--color-background);
+  color: var(--color-text-primary);
   line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.sidebar-title {
+  font-family: var(--font-body);
+  font-weight: 600;
 }
 
 .app {
@@ -45,7 +60,7 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .brand {
@@ -58,8 +73,13 @@ body {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.5rem;
-  background: linear-gradient(145deg, var(--accent), var(--accent-dim));
-  color: var(--bg);
+  background: linear-gradient(
+    145deg,
+    var(--color-logo-accent),
+    var(--color-primary)
+  );
+  color: var(--color-text-on-red);
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 0.85rem;
   display: flex;
@@ -78,18 +98,19 @@ body {
 .brand-text p {
   margin: 0;
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
 }
 
 .status {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--color-text-muted);
   max-width: 12rem;
   text-align: right;
 }
 
 .status.error {
-  color: var(--danger);
+  color: var(--color-danger);
 }
 
 .chat-panel {
@@ -120,22 +141,22 @@ body {
 
 .msg.user {
   align-self: flex-end;
-  background: var(--user-bubble);
-  border: 1px solid var(--border);
+  background: var(--color-user-bubble);
+  border: 1px solid var(--color-border);
 }
 
 .msg.assistant {
   align-self: flex-start;
-  background: var(--bot-bubble);
-  border: 1px solid var(--border);
+  background: var(--color-bot-bubble);
+  border: 1px solid var(--color-border);
 }
 
 .msg-sources {
   margin-top: 0.65rem;
   padding-top: 0.65rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 
 .msg-sources ul {
@@ -144,11 +165,12 @@ body {
 }
 
 .msg-sources a {
-  color: var(--accent);
+  color: var(--color-primary);
   text-decoration: none;
 }
 
 .msg-sources a:hover {
+  color: var(--color-primary-hover);
   text-decoration: underline;
 }
 
@@ -161,7 +183,7 @@ body {
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   align-items: flex-end;
 }
 
@@ -172,16 +194,17 @@ body {
   max-height: 8rem;
   padding: 0.65rem 0.85rem;
   border-radius: 0.65rem;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font: inherit;
   line-height: 1.4;
 }
 
 .composer textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+  border-color: var(--color-primary);
 }
 
 .composer textarea:disabled {
@@ -192,8 +215,9 @@ body {
   padding: 0.65rem 1.15rem;
   border-radius: 0.65rem;
   border: none;
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--color-primary);
+  color: var(--color-text-on-red);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
@@ -201,7 +225,11 @@ body {
 }
 
 .composer button:hover:not(:disabled) {
-  filter: brightness(1.06);
+  background: var(--color-primary-hover);
+}
+
+.composer button:active:not(:disabled) {
+  background: var(--color-logo-accent);
 }
 
 .composer button:disabled {
@@ -224,14 +252,14 @@ body {
   display: inline-flex;
   gap: 0.25rem;
   align-items: center;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-size: 0.8rem;
 }
 
 .typing span {
   width: 0.35rem;
   height: 0.35rem;
-  background: var(--muted);
+  background: var(--color-text-muted);
   border-radius: 50%;
   animation: bounce 1.2s infinite ease-in-out;
 }
@@ -257,19 +285,26 @@ body {
   }
 }
 
-/* ── Send button uses brand blue ─────────────────────────────────────────── */
 #send {
-  background: var(--primary);
-  color: var(--primary-text);
+  background: var(--color-primary);
+  color: var(--color-text-on-red);
 }
 
-/* ── Button variants ─────────────────────────────────────────────────────── */
+#send:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+#send:active:not(:disabled) {
+  background: var(--color-logo-accent);
+}
+
 .btn-primary {
   padding: 0.65rem 1.15rem;
   border-radius: 0.65rem;
   border: none;
-  background: var(--primary);
-  color: var(--primary-text);
+  background: var(--color-primary);
+  color: var(--color-text-on-red);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
@@ -277,7 +312,11 @@ body {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-dim);
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--color-logo-accent);
 }
 
 .btn-primary:disabled {
@@ -288,9 +327,10 @@ body {
 .btn-secondary {
   padding: 0.65rem 1.15rem;
   border-radius: 0.65rem;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
@@ -298,8 +338,19 @@ body {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-secondary:active:not(:disabled) {
+  background: var(--color-background);
+  border-color: var(--color-primary-hover);
+  color: var(--color-primary-hover);
+}
+
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .btn-secondary:disabled {
@@ -313,8 +364,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
   flex-shrink: 0;
 }
 
@@ -329,9 +380,9 @@ body {
 }
 
 .lang-select {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.4rem 0.65rem;
   font: inherit;
@@ -339,9 +390,14 @@ body {
   cursor: pointer;
 }
 
+.lang-select:hover {
+  border-color: var(--color-primary);
+}
+
 .lang-select:focus {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+  border-color: var(--color-primary);
 }
 
 .lp-body {
@@ -351,16 +407,17 @@ body {
   overflow: hidden;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ── Sidebar (brand primary) ─────────────────────────────────────────────── */
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--color-logo-accent);
   display: flex;
   flex-direction: column;
   padding: 1rem;
   gap: 0.75rem;
   overflow-y: auto;
+  background: var(--color-primary);
 }
 
 .sidebar-title {
@@ -368,7 +425,7 @@ body {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--color-text-on-red) 72%, transparent);
   padding: 0 0.25rem;
 }
 
@@ -376,6 +433,17 @@ body {
   width: 100%;
   justify-content: center;
   padding: 0.6rem 0.75rem;
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+#new-project-btn:hover:not(:disabled) {
+  background: var(--color-background);
+  color: var(--color-primary-hover);
+}
+
+#new-project-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-surface) 88%, var(--color-primary));
 }
 
 .project-list {
@@ -400,8 +468,8 @@ body {
 }
 
 .project-list li:hover {
-  background: var(--panel);
-  border-color: var(--border);
+  background: var(--color-primary-hover);
+  border-color: color-mix(in srgb, var(--color-text-on-red) 22%, transparent);
 }
 
 .project-list li .proj-info {
@@ -415,26 +483,29 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text);
+  color: var(--color-text-on-red);
+  font-family: var(--font-body);
 }
 
 .project-list li .proj-date {
   font-size: 0.7rem;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--color-text-on-red) 68%, transparent);
   margin-top: 0.1rem;
+  font-family: var(--font-body);
 }
 
 .proj-delete {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--color-text-on-red) 75%, transparent);
   font-size: 0.8rem;
   padding: 0.2rem 0.35rem;
   border-radius: 0.35rem;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.12s, color 0.12s;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+  font-family: var(--font-body);
 }
 
 .project-list li:hover .proj-delete {
@@ -442,7 +513,8 @@ body {
 }
 
 .proj-delete:hover {
-  color: var(--danger);
+  color: var(--color-text-on-red);
+  background: color-mix(in srgb, var(--color-text-on-red) 12%, transparent);
 }
 
 /* ── Landing main / empty state ──────────────────────────────────────────── */
@@ -451,23 +523,30 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--color-background);
 }
 
 .lp-empty {
   text-align: center;
-  color: var(--muted);
+  color: var(--color-text-muted);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  font-family: var(--font-body);
 }
 
 .brand-mark-lg {
   width: 5rem;
   height: 5rem;
   border-radius: 1rem;
-  background: linear-gradient(145deg, var(--primary), var(--primary-dim));
-  color: var(--primary-text);
+  background: linear-gradient(
+    145deg,
+    var(--color-logo-accent),
+    var(--color-primary)
+  );
+  color: var(--color-text-on-red);
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 1.75rem;
   display: flex;
@@ -496,22 +575,23 @@ body {
 }
 
 .back-btn {
-  color: var(--muted);
+  color: var(--color-text-muted);
   text-decoration: none;
   font-size: 0.8rem;
   white-space: nowrap;
   transition: color 0.12s;
+  font-family: var(--font-body);
 }
 
 .back-btn:hover {
-  color: var(--text);
+  color: var(--color-primary);
 }
 
 /* ── Settings overlay + panel ───────────────────────────────────────────── */
 .settings-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--color-text-primary) 45%, transparent);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -523,8 +603,8 @@ body {
 }
 
 .settings-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 1rem 1rem 0 0;
   padding: 1.75rem 1.5rem 2rem;
   width: 100%;
@@ -536,8 +616,12 @@ body {
 }
 
 @keyframes slide-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
 
 .settings-panel h3 {
@@ -554,25 +638,32 @@ body {
 
 .settings-field label {
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--color-text-muted);
   font-weight: 500;
+  font-family: var(--font-body);
 }
 
 .settings-field input,
 .settings-field select {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 0.55rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
 }
 
+.settings-field input:hover,
+.settings-field select:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+}
+
 .settings-field input:focus,
 .settings-field select:focus {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
+  border-color: var(--color-primary);
 }
 
 .settings-actions {
@@ -586,24 +677,31 @@ body {
   position: fixed;
   bottom: 1.25rem;
   left: 1.25rem;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   width: 2.5rem;
   height: 2.5rem;
   cursor: pointer;
-  color: var(--muted);
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 50;
   font-size: 1rem;
-  transition: color 0.12s, border-color 0.12s;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  font-family: var(--font-body);
 }
 
 .gear-btn:hover {
-  color: var(--text);
-  border-color: var(--primary);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-background);
+}
+
+.gear-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ── Full-height layout for landing and chat pages ──────────────────────── */
@@ -612,4 +710,17 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  background: var(--color-background);
+}
+
+.btn-primary:focus-visible,
+#send:focus-visible,
+.composer button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.project-list li:focus-visible {
+  outline: 2px solid var(--color-text-on-red);
+  outline-offset: 2px;
 }
