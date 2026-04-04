@@ -1,61 +1,154 @@
+import { t } from "./i18n.js";
+import { getSettings, saveSettings, getProject, updateProject } from "./storage.js";
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let project = null;
+let thread = [];
+let currentLang = "fr";
+let isLoading = false;
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
 const messagesEl = document.getElementById("messages");
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
+const techSheetBtn = document.getElementById("tech-sheet-btn");
 const statusEl = document.getElementById("status");
 
-/** @type {{ role: 'user' | 'assistant', content: string, sources?: {title: string, uri: string}[], webSearchQueries?: string[] }[]} */
-let thread = [];
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (location.protocol === "file:") {
+    appendMessage({
+      role: "assistant",
+      content:
+        "Open this app through the server (npm start) so the chat can reach the API.",
+    });
+    return;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const projectId = params.get("project");
+
+  if (!projectId) {
+    location.href = "/";
+    return;
+  }
+
+  project = getProject(projectId);
+  if (!project) {
+    location.href = "/";
+    return;
+  }
+
+  const settings = getSettings();
+  currentLang = project.lang || settings.lang || "fr";
+
+  applyStrings(currentLang);
+
+  // Render existing thread messages
+  thread = [...project.thread];
+  for (const msg of thread) {
+    appendMessage(msg);
+  }
+
+  checkHealth();
+  wireListeners();
+});
+
+// ── i18n ──────────────────────────────────────────────────────────────────────
+
+function applyStrings(lang) {
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(lang, el.dataset.i18n);
+  });
+
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(lang, el.dataset.i18nPlaceholder);
+  });
+
+  document.querySelectorAll("[data-i18n-opt]").forEach((el) => {
+    el.textContent = t(lang, el.dataset.i18nOpt);
+  });
+
+  const gearBtn = document.getElementById("gear-btn");
+  if (gearBtn) gearBtn.setAttribute("aria-label", t(lang, "settingsTitle"));
+
+  document.title = `AJ Revetement — ${project?.name || t(lang, "appName")}`;
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+
+function persistThread() {
+  if (project) {
+    updateProject(project.id, { thread: [...thread] });
+  }
+}
+
+// ── Message rendering ─────────────────────────────────────────────────────────
 
 function escapeHtml(s) {
-  const div = document.createElement("div");
-  div.textContent = s;
-  return div.innerHTML;
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function appendMessage(msg) {
   const div = document.createElement("div");
   div.className = `msg ${msg.role}`;
-  let html = escapeHtml(msg.content);
+  div.textContent = msg.content;
 
-  if (msg.role === "assistant" && (msg.sources?.length || msg.webSearchQueries?.length)) {
-    const parts = [];
+  if (msg.sources?.length || msg.webSearchQueries?.length) {
+    const meta = document.createElement("div");
+    meta.className = "msg-sources";
+
     if (msg.webSearchQueries?.length) {
-      parts.push(
-        `<div class="queries">Web: ${escapeHtml(msg.webSearchQueries.join(" · "))}</div>`
-      );
+      const q = document.createElement("p");
+      q.className = "queries";
+      q.textContent = msg.webSearchQueries.join(" · ");
+      meta.appendChild(q);
     }
+
     if (msg.sources?.length) {
-      const items = msg.sources
-        .map(
-          (s) =>
-            `<li><a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a></li>`
-        )
-        .join("");
-      parts.push(`<div class="msg-sources">Sources<ul>${items}</ul></div>`);
+      const ul = document.createElement("ul");
+      for (const src of msg.sources) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = src.uri;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = escapeHtml(src.title);
+        li.appendChild(a);
+        ul.appendChild(li);
+      }
+      meta.appendChild(ul);
     }
-    html += parts.join("");
+
+    div.appendChild(meta);
   }
 
-  div.innerHTML = html;
   messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
 }
 
-function setLoading(on) {
-  sendBtn.disabled = on;
-  input.disabled = on;
-  statusEl.textContent = on ? "Thinking…" : "";
-  statusEl.classList.toggle("error", false);
-}
+// ── Typing indicator ──────────────────────────────────────────────────────────
 
 function showTyping() {
-  const wrap = document.createElement("div");
-  wrap.className = "msg assistant";
-  wrap.id = "typing-indicator";
-  wrap.innerHTML =
-    '<div class="typing"><span></span><span></span><span></span></div>';
-  messagesEl.appendChild(wrap);
+  const div = document.createElement("div");
+  div.className = "msg assistant";
+  div.id = "typing-indicator";
+  const dots = document.createElement("span");
+  dots.className = "typing";
+  dots.innerHTML = "<span></span><span></span><span></span>";
+  div.appendChild(dots);
+  messagesEl.appendChild(div);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -63,87 +156,51 @@ function removeTyping() {
   document.getElementById("typing-indicator")?.remove();
 }
 
-function resizeInput() {
-  input.style.height = "auto";
-  input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
+// ── Loading state ─────────────────────────────────────────────────────────────
+
+function setLoading(on) {
+  isLoading = on;
+  input.disabled = on;
+  sendBtn.disabled = on;
+  techSheetBtn.disabled = on;
+  statusEl.textContent = on ? t(currentLang, "thinking") : "";
+  statusEl.className = "status";
 }
 
-thread.push({
-  role: "assistant",
-  content: "How can I help you today?",
-});
-appendMessage(thread[0]);
+// ── Send message ──────────────────────────────────────────────────────────────
 
-if (location.protocol === "file:") {
-  appendMessage({
-    role: "assistant",
-    content:
-      "Open this app through the server so the chat can reach the API: run `npm start` in the project folder, then visit http://localhost:3000 — opening the HTML file directly will not work.",
-  });
-}
-
-async function checkHealth() {
-  try {
-    const r = await fetch("/api/health");
-    const data = await r.json();
-    if (!data.geminiConfigured) {
-      statusEl.classList.add("error");
-      const h = data.envHelp;
-      if (h && !h.rootEnvExists && !h.cwdEnvExists) {
-        statusEl.textContent =
-          "No .env file found. Create .env next to package.json (see .env.example).";
-      } else if (h && h.rootEnvExists) {
-        statusEl.textContent =
-          "Key missing or empty in .env — use GEMINI_API_KEY=yourKey (no spaces).";
-      } else {
-        statusEl.textContent =
-          "Set GEMINI_API_KEY in .env next to package.json, then restart the server.";
-      }
-    }
-  } catch {
-    statusEl.textContent = "Server unreachable";
-    statusEl.classList.add("error");
-  }
-}
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text) return;
+async function sendMessage(text) {
+  if (!text || isLoading) return;
 
   thread.push({ role: "user", content: text });
   appendMessage(thread[thread.length - 1]);
+  persistThread();
+
   input.value = "";
   resizeInput();
-
   setLoading(true);
   showTyping();
 
-  try {
-    const apiMessages = thread
-      .slice(thread[0]?.role === "assistant" ? 1 : 0)
-      .map(({ role, content }) => ({ role, content }));
+  // Skip initial greeting when sending to API
+  const apiMessages = thread
+    .slice(thread[0]?.role === "assistant" ? 1 : 0)
+    .map(({ role, content }) => ({ role, content }));
 
+  try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: apiMessages }),
+      body: JSON.stringify({ messages: apiMessages, language: currentLang }),
     });
-    const data = await res.json().catch(() => ({}));
+
     removeTyping();
 
     if (!res.ok) {
-      const errText = data.error || `Request failed (${res.status}).`;
-      statusEl.textContent = errText;
-      statusEl.classList.add("error");
-      console.error("Chat API error:", res.status, data);
-      appendMessage({
-        role: "assistant",
-        content: `Sorry — something went wrong.\n\n${errText}`,
-      });
-      return;
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `${t(currentLang, "serverError")} (${res.status})`);
     }
 
+    const data = await res.json();
     const assistantMsg = {
       role: "assistant",
       content: data.text,
@@ -152,31 +209,99 @@ form.addEventListener("submit", async (e) => {
     };
     thread.push(assistantMsg);
     appendMessage(assistantMsg);
-    statusEl.textContent = "";
-  } catch (e) {
+    persistThread();
+  } catch (err) {
     removeTyping();
-    const hint =
-      location.protocol === "file:"
-        ? "You are viewing this page as a file. Start the server with npm start and use http://localhost:3000"
-        : "Could not reach the server. Is it running (npm start)?";
-    statusEl.textContent = "Network error";
-    statusEl.classList.add("error");
-    console.error(e);
     appendMessage({
       role: "assistant",
-      content: `Sorry — ${hint}`,
+      content: err.message || t(currentLang, "networkError"),
     });
+    statusEl.textContent = err.message;
+    statusEl.className = "status error";
   } finally {
     setLoading(false);
   }
-});
+}
 
-input.addEventListener("input", resizeInput);
-input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    form.requestSubmit();
+// ── Health check ──────────────────────────────────────────────────────────────
+
+async function checkHealth() {
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    if (!data.geminiConfigured) {
+      appendMessage({ role: "assistant", content: t(currentLang, "noApiKey") });
+    }
+  } catch {
+    appendMessage({ role: "assistant", content: t(currentLang, "networkError") });
   }
-});
+}
 
-checkHealth();
+// ── Textarea auto-resize ──────────────────────────────────────────────────────
+
+function resizeInput() {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 128) + "px";
+}
+
+// ── Settings panel ────────────────────────────────────────────────────────────
+
+function openSettings() {
+  const settings = getSettings();
+  document.getElementById("settings-lang").value = project?.lang || settings.lang || currentLang;
+  document.getElementById("settings-username").value = settings.username || "";
+  document.getElementById("settings-overlay").removeAttribute("hidden");
+}
+
+function closeSettings() {
+  document.getElementById("settings-overlay").setAttribute("hidden", "");
+}
+
+function saveSettingsPanel() {
+  const lang = document.getElementById("settings-lang").value;
+  const username = document.getElementById("settings-username").value.trim();
+  saveSettings({ lang, username });
+  currentLang = lang;
+  if (project) {
+    updateProject(project.id, { lang });
+    project.lang = lang;
+  }
+  applyStrings(lang);
+  closeSettings();
+}
+
+// ── Event wiring ──────────────────────────────────────────────────────────────
+
+function wireListeners() {
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (text) sendMessage(text);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (text) sendMessage(text);
+    }
+  });
+
+  input.addEventListener("input", resizeInput);
+
+  techSheetBtn.addEventListener("click", () => {
+    sendMessage(t(currentLang, "techSheetPrompt"));
+  });
+
+  document.getElementById("gear-btn").addEventListener("click", openSettings);
+  document.getElementById("settings-close").addEventListener("click", closeSettings);
+  document.getElementById("settings-save").addEventListener("click", saveSettingsPanel);
+
+  document.getElementById("settings-overlay").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeSettings();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSettings();
+  });
+}

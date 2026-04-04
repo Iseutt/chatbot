@@ -27,14 +27,19 @@ app.use(express.static(publicDir));
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-const SYSTEM_INSTRUCTION = `You are the professional in-house assistant for AJ Revetement, a company focused on coatings and surface treatments (revêtements).
+const SYSTEM_INSTRUCTION_BASE = `You are the professional in-house assistant for AJ Revetement, a company focused on coatings and surface treatments (revêtements).
 
 Your role today:
 - Answer questions clearly and professionally for staff.
 - When the user needs recent facts, standards, product data, or anything time-sensitive, rely on Google Search grounding so answers reflect current public information.
-- You will later help collect fields for technical datasheets and support PDF workflows; those features are not active yet—do not promise PDF download today, but you may acknowledge that it is planned.
+- When asked to generate a technical sheet, produce a well-structured document with sections such as: Product Name, Description, Applications, Technical Properties, Surface Preparation, Application Method, Drying/Curing Times, Safety & Handling, and any other relevant fields from the conversation.
 
 Tone: concise, accurate, and helpful. If search sources support claims, you may mention that information comes from web sources without over-explaining the tool.`;
+
+function buildSystemInstruction(lang) {
+  const langName = lang === "en" ? "English" : "French";
+  return SYSTEM_INSTRUCTION_BASE + `\n\nCommunicate exclusively in ${langName}. All your responses must be in ${langName}.`;
+}
 
 function toGeminiContents(messages) {
   return messages.map((m) => {
@@ -105,7 +110,8 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const { messages } = req.body ?? {};
+  const { messages, language } = req.body ?? {};
+  const lang = language === "en" ? "en" : "fr";
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Expected a non-empty messages array." });
   }
@@ -124,7 +130,7 @@ app.post("/api/chat", async (req, res) => {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const baseConfig = { systemInstruction: SYSTEM_INSTRUCTION };
+    const baseConfig = { systemInstruction: buildSystemInstruction(lang) };
     const withSearch = { ...baseConfig, tools: [{ googleSearch: {} }] };
 
     let response;

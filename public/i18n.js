@@ -1,0 +1,68 @@
+export const STRINGS = {
+  fr: {
+    appName: "AJ Revetement",
+    tagline: "Assistant technique",
+    newProject: "+ Nouveau projet",
+    projects: "Projets",
+    noProjects: "Aucun projet pour l'instant.\nCréez-en un pour commencer.",
+    settingsTitle: "Paramètres",
+    language: "Langue",
+    username: "Votre nom",
+    usernamePlaceholder: "ex. Jean Tremblay",
+    save: "Enregistrer",
+    close: "Fermer",
+    inputPlaceholder: "Posez une question…",
+    send: "Envoyer",
+    techSheet: "Fiche technique",
+    techSheetPrompt:
+      "Veuillez générer une fiche technique complète basée sur notre conversation.",
+    thinking: "En cours…",
+    backToProjects: "← Projets",
+    deleteProject: "Supprimer",
+    confirmDelete: "Supprimer ce projet ?",
+    newProjectNamePrompt: "Nom du projet :",
+    newProjectName: "Nouveau projet",
+    greeting: "Comment puis-je vous aider aujourd'hui ?",
+    serverError: "Erreur serveur",
+    networkError: "Impossible de joindre le serveur. Est-il démarré ?",
+    noApiKey:
+      "Clé GEMINI_API_KEY manquante. Copiez .env.example vers .env et ajoutez votre clé.",
+    french: "Français",
+    english: "English",
+  },
+  en: {
+    appName: "AJ Revetement",
+    tagline: "Technical assistant",
+    newProject: "+ New Project",
+    projects: "Projects",
+    noProjects: "No projects yet.\nCreate one to get started.",
+    settingsTitle: "Settings",
+    language: "Language",
+    username: "Your name",
+    usernamePlaceholder: "e.g. John Smith",
+    save: "Save",
+    close: "Close",
+    inputPlaceholder: "Ask a question…",
+    send: "Send",
+    techSheet: "Technical Sheet",
+    techSheetPrompt:
+      "Please generate a complete technical sheet based on our conversation.",
+    thinking: "Thinking…",
+    backToProjects: "← Projects",
+    deleteProject: "Delete",
+    confirmDelete: "Delete this project?",
+    newProjectNamePrompt: "Project name:",
+    newProjectName: "New project",
+    greeting: "How can I help you today?",
+    serverError: "Server error",
+    networkError: "Could not reach the server. Is it running?",
+    noApiKey:
+      "GEMINI_API_KEY is missing. Copy .env.example to .env and add your key.",
+    french: "Français",
+    english: "English",
+  },
+};
+
+export function t(lang, key) {
+  return STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
+}

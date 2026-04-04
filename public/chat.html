@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AJ Revetement</title>
+    <title>AJ Revetement — Assistant</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,43 +13,42 @@
     />
   </head>
   <body>
-    <div class="page-wrap">
-      <!-- Top bar -->
-      <header class="lp-header">
-        <div class="brand">
-          <span class="brand-mark">AJ</span>
-          <div class="brand-text">
-            <h1 data-i18n="appName">AJ Revetement</h1>
-            <p data-i18n="tagline">Assistant technique</p>
+    <div class="app">
+      <header class="header">
+        <div class="header-left">
+          <a href="/" class="back-btn" data-i18n="backToProjects">← Projets</a>
+          <div class="brand">
+            <span class="brand-mark">AJ</span>
+            <div class="brand-text">
+              <h1 data-i18n="appName">AJ Revetement</h1>
+              <p data-i18n="tagline">Assistant technique</p>
+            </div>
           </div>
         </div>
-        <div class="lp-header-right">
-          <select id="lang-select" class="lang-select" aria-label="Langue / Language">
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-          </select>
+        <div class="header-right">
+          <span class="status" id="status" aria-live="polite"></span>
         </div>
       </header>
 
-      <!-- Two-column body -->
-      <div class="lp-body">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-          <button id="new-project-btn" class="btn-primary" data-i18n="newProject">
-            + Nouveau projet
-          </button>
-          <h2 class="sidebar-title" data-i18n="projects">Projets</h2>
-          <ul id="project-list" class="project-list"></ul>
-        </aside>
+      <main class="chat-panel">
+        <div class="messages" id="messages" role="log" aria-relevant="additions">
+        </div>
 
-        <!-- Main / empty state -->
-        <main class="lp-main">
-          <div class="lp-empty" id="lp-empty">
-            <span class="brand-mark-lg">AJ</span>
-            <p data-i18n="noProjects">Aucun projet pour l'instant.<br>Créez-en un pour commencer.</p>
-          </div>
-        </main>
-      </div>
+        <form class="composer" id="form" autocomplete="off">
+          <label class="sr-only" for="input" data-i18n="inputPlaceholder">Posez une question…</label>
+          <textarea
+            id="input"
+            rows="1"
+            data-i18n-placeholder="inputPlaceholder"
+            placeholder="Posez une question…"
+            required
+          ></textarea>
+          <button type="button" id="tech-sheet-btn" class="btn-secondary" data-i18n="techSheet">
+            Fiche technique
+          </button>
+          <button type="submit" id="send" data-i18n="send">Envoyer</button>
+        </form>
+      </main>
     </div>
 
     <!-- Settings overlay -->
@@ -85,6 +84,6 @@
     <!-- Gear button fixed bottom-left -->
     <button class="gear-btn" id="gear-btn" aria-label="Paramètres">⚙</button>
 
-    <script type="module" src="/landing.js"></script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>
