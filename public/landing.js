@@ -146,6 +146,9 @@ function openSettings() {
   const settings = getSettings();
   document.getElementById("settings-lang").value = settings.lang || currentLang;
   document.getElementById("settings-username").value = settings.username || "";
+  document.getElementById("settings-mic-mode").value = settings.micMode ?? "toggle";
+  document.getElementById("settings-mic-live").checked = settings.micLive ?? true;
+  document.getElementById("settings-mic-autosend").checked = settings.micAutoSend ?? false;
   overlay.removeAttribute("hidden");
 }
 
@@ -156,7 +159,10 @@ function closeSettings() {
 function saveSettingsPanel() {
   const lang = document.getElementById("settings-lang").value;
   const username = document.getElementById("settings-username").value.trim();
-  saveSettings({ lang, username });
+  const micMode = document.getElementById("settings-mic-mode").value;
+  const micLive = document.getElementById("settings-mic-live").checked;
+  const micAutoSend = document.getElementById("settings-mic-autosend").checked;
+  saveSettings({ lang, username, micMode, micLive, micAutoSend });
   handleLangChange(lang);
   closeSettings();
 }
