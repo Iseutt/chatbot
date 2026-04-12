@@ -740,6 +740,77 @@ h3 {
   outline-offset: 2px;
 }
 
+/* ── Contact card (fixed bottom-right) ──────────────────────────────────── */
+.contact-card {
+  position: fixed;
+  bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  right: max(1.25rem, env(safe-area-inset-right, 0px));
+  background: #2e2e2e;
+  color: #e8e8e8;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem 1rem;
+  z-index: 50;
+  min-width: 220px;
+  max-width: 280px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.contact-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.85rem;
+  color: #ffffff;
+}
+
+.contact-info {
+  font-style: normal;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #cccccc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.contact-info p {
+  margin: 0;
+}
+
+.contact-info a {
+  color: #e8a0a0;
+  text-decoration: none;
+}
+
+.contact-info a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.contact-socials {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #444444;
+  color: #ffffff;
+  text-decoration: none;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.social-link:hover {
+  background: var(--color-primary);
+}
+
 /* ── Full-height layout for landing and chat pages ──────────────────────── */
 .page-wrap {
   display: flex;
@@ -762,6 +833,13 @@ h3 {
 .project-list li:focus-visible {
   outline: 2px solid var(--color-text-on-red);
   outline-offset: 2px;
+}
+
+/* Contact card: hide on mobile to avoid covering content */
+@media (max-width: 767px) {
+  .contact-card {
+    display: none;
+  }
 }
 
 /* ── Smartphone layout (narrow screens) ─────────────────────────────────── */
