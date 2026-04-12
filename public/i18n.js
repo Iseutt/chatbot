@@ -35,6 +35,8 @@ export const STRINGS = {
     micModeHold: "Maintenir le bouton",
     micLive: "Transcription en direct",
     micAutoSend: "Envoi automatique",
+    searchPlaceholder: "Rechercher…",
+    searchNoResults: "Aucun résultat.",
   },
   en: {
     appName: "AJ Revetement",
@@ -72,6 +74,8 @@ export const STRINGS = {
     micModeHold: "Hold to talk",
     micLive: "Live transcription",
     micAutoSend: "Auto-send",
+    searchPlaceholder: "Search…",
+    searchNoResults: "No results.",
   },
 };
 

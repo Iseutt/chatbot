@@ -60,8 +60,15 @@
           <button id="new-project-btn" class="btn-primary" data-i18n="newProject">
             + Nouveau projet
           </button>
+          <div class="search-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="search" id="search-input" class="search-input" data-i18n-placeholder="searchPlaceholder" placeholder="Rechercher…" autocomplete="off" />
+          </div>
           <h2 class="sidebar-title" data-i18n="projects">Projets</h2>
           <ul id="project-list" class="project-list"></ul>
+          <p class="search-empty" id="search-empty" hidden data-i18n="searchNoResults">Aucun résultat.</p>
         </aside>
 
         <!-- Main / empty state -->

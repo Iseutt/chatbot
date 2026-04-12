@@ -7,6 +7,8 @@ import {
   deleteProject,
 } from "./storage.js";
 
+let searchQuery = "";
+
 let currentLang = "fr";
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -46,20 +48,32 @@ function applyStrings(lang) {
 
 // ── Project list ──────────────────────────────────────────────────────────────
 
+function matchesSearch(proj, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  if (proj.name.toLowerCase().includes(q)) return true;
+  return proj.thread?.some((msg) => msg.content?.toLowerCase().includes(q));
+}
+
 function renderProjectList() {
   const list = document.getElementById("project-list");
   const empty = document.getElementById("lp-empty");
+  const searchEmpty = document.getElementById("search-empty");
   const projects = getProjects();
 
   list.innerHTML = "";
 
   if (projects.length === 0) {
     empty.style.display = "";
+    searchEmpty.hidden = true;
     return;
   }
   empty.style.display = "none";
 
-  for (const proj of projects) {
+  const filtered = projects.filter((p) => matchesSearch(p, searchQuery));
+  searchEmpty.hidden = filtered.length > 0;
+
+  for (const proj of filtered) {
     const li = document.createElement("li");
 
     const info = document.createElement("div");
@@ -129,6 +143,7 @@ function handleDeleteProject(id) {
   renderProjectList();
 }
 
+
 function handleLangChange(newLang) {
   currentLang = newLang;
   saveSettings({ lang: newLang });
@@ -171,6 +186,11 @@ function saveSettingsPanel() {
 
 function wireListeners() {
   document.getElementById("new-project-btn").addEventListener("click", handleNewProject);
+
+  document.getElementById("search-input").addEventListener("input", (e) => {
+    searchQuery = e.target.value.trim();
+    renderProjectList();
+  });
 
   document.getElementById("lang-select").addEventListener("change", (e) => {
     handleLangChange(e.target.value);

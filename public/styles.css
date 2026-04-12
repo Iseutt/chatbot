@@ -463,6 +463,53 @@ h3 {
   padding: 0 0.25rem;
 }
 
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.6rem;
+  color: color-mix(in srgb, var(--color-text-on-red) 55%, transparent);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
+  background: color-mix(in srgb, var(--color-text-on-red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-on-red) 20%, transparent);
+  border-radius: 0.5rem;
+  color: var(--color-text-on-red);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.search-input::placeholder {
+  color: color-mix(in srgb, var(--color-text-on-red) 45%, transparent);
+}
+
+.search-input:focus {
+  background: color-mix(in srgb, var(--color-text-on-red) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-text-on-red) 45%, transparent);
+}
+
+/* Hide native clear button — we clear on empty automatically */
+.search-input::-webkit-search-cancel-button { display: none; }
+
+.search-empty {
+  margin: 0;
+  padding: 0 0.25rem;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--color-text-on-red) 55%, transparent);
+  font-family: var(--font-body);
+}
+
 #new-project-btn {
   width: 100%;
   justify-content: center;
