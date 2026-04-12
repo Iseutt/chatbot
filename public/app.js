@@ -187,10 +187,17 @@ async function sendMessage(text) {
     .map(({ role, content }) => ({ role, content }));
 
   try {
+    const settings = getSettings();
+    const userName = (settings.username || "").trim() || undefined;
+
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: apiMessages, language: currentLang }),
+      body: JSON.stringify({
+        messages: apiMessages,
+        language: currentLang,
+        ...(userName ? { userName } : {}),
+      }),
     });
 
     removeTyping();

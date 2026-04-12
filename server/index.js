@@ -44,9 +44,27 @@ Your role today:
 
 Tone: concise, accurate, and helpful. If search sources support claims, you may mention that information comes from web sources without over-explaining the tool.`;
 
-function buildSystemInstruction(lang) {
+/** Strip risky characters and cap length for a user-supplied display name. */
+function sanitizeDisplayName(raw) {
+  if (raw == null || typeof raw !== "string") return "";
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "";
+  const noControls = trimmed.replace(/[\u0000-\u001F\u007F]/g, "");
+  const max = 80;
+  return noControls.length > max ? noControls.slice(0, max) : noControls;
+}
+
+function buildSystemInstruction(lang, displayName) {
   const langName = lang === "en" ? "English" : "French";
-  return SYSTEM_INSTRUCTION_BASE + `\n\nCommunicate exclusively in ${langName}. All your responses must be in ${langName}.`;
+  let text =
+    SYSTEM_INSTRUCTION_BASE +
+    `\n\nCommunicate exclusively in ${langName}. All your responses must be in ${langName}.`;
+
+  if (displayName) {
+    text += `\n\nUser context: The person you are assisting has set their display name to "${displayName}". Use it when addressing them when it fits naturally. If they ask what their name is (or similar), answer using this display name.`;
+  }
+
+  return text;
 }
 
 function toGeminiContents(messages) {
@@ -118,8 +136,11 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const { messages, language } = req.body ?? {};
+  const { messages, language, userName, username } = req.body ?? {};
   const lang = language === "en" ? "en" : "fr";
+  const displayName = sanitizeDisplayName(
+    typeof userName === "string" ? userName : typeof username === "string" ? username : ""
+  );
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Expected a non-empty messages array." });
   }
@@ -138,7 +159,9 @@ app.post("/api/chat", async (req, res) => {
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const baseConfig = { systemInstruction: buildSystemInstruction(lang) };
+    const baseConfig = {
+      systemInstruction: buildSystemInstruction(lang, displayName),
+    };
     const withSearch = { ...baseConfig, tools: [{ googleSearch: {} }] };
 
     let response;

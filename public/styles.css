@@ -49,6 +49,7 @@ h3 {
   max-width: 52rem;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 1rem 1rem 1.25rem;
@@ -675,13 +676,15 @@ h3 {
 /* ── Gear button (fixed bottom-left) ────────────────────────────────────── */
 .gear-btn {
   position: fixed;
-  bottom: 1.25rem;
-  left: 1.25rem;
+  bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  left: max(1.25rem, env(safe-area-inset-left, 0px));
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 50%;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   cursor: pointer;
   color: var(--color-text-muted);
   display: flex;
@@ -709,6 +712,9 @@ h3 {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   background: var(--color-background);
 }
@@ -723,4 +729,152 @@ h3 {
 .project-list li:focus-visible {
   outline: 2px solid var(--color-text-on-red);
   outline-offset: 2px;
+}
+
+/* ── Smartphone layout (narrow screens) ─────────────────────────────────── */
+
+/* Touch: project delete must be visible without hover */
+@media (hover: none) and (pointer: coarse) {
+  .proj-delete {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Landing: stack projects above main content */
+  .lp-body {
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-height: min(42vh, 320px);
+    border-right: none;
+    border-bottom: 1px solid var(--color-logo-accent);
+    flex-shrink: 0;
+  }
+
+  .lp-main {
+    flex: 1;
+    min-height: min(50vh, 360px);
+    padding: 1rem;
+  }
+
+  .lp-header {
+    padding: 0.65rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .lp-header .brand-text h1 {
+    font-size: 1rem;
+  }
+
+  .lp-header .brand-text p {
+    font-size: 0.72rem;
+  }
+
+  /* Chat: use full width, comfortable tap targets */
+  .app {
+    max-width: none;
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .header-left {
+    flex: 1 1 100%;
+    min-width: 0;
+    gap: 0.65rem;
+  }
+
+  .header-right {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .status {
+    max-width: none;
+    text-align: left;
+    font-size: 0.7rem;
+  }
+
+  .brand-text h1 {
+    font-size: 1rem;
+  }
+
+  .back-btn {
+    font-size: 0.75rem;
+  }
+
+  .msg {
+    max-width: 100%;
+    font-size: 0.9rem;
+  }
+
+  .composer {
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .composer textarea {
+    flex: 1 1 100%;
+    min-width: 100%;
+    min-height: 3rem;
+    font-size: 1rem; /* avoids iOS zoom on focus */
+  }
+
+  .composer .btn-secondary,
+  .composer button[type="submit"] {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-height: 2.75rem;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .settings-panel {
+    padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ── Desktop / large screens: centered settings, comfortable chat width ──── */
+@media (min-width: 768px) {
+  .settings-overlay {
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .settings-panel {
+    border-radius: 1rem;
+    max-height: min(90vh, 720px);
+    overflow-y: auto;
+    box-shadow: 0 1.25rem 3rem
+      color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+    animation: modal-in 0.22s ease;
+  }
+
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 }
