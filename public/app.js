@@ -311,4 +311,48 @@ function wireListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSettings();
   });
+
+  // ── Voice input ──────────────────────────────────────────────────────────────
+
+  const micBtn = document.getElementById("mic-btn");
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    micBtn.classList.add("mic-unsupported");
+  } else {
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    micBtn.addEventListener("click", () => {
+      if (isLoading) return;
+      recognition.lang = currentLang === "fr" ? "fr-FR" : "en-US";
+      if (micBtn.classList.contains("recording")) {
+        recognition.stop();
+      } else {
+        recognition.start();
+        micBtn.classList.add("recording");
+      }
+    });
+
+    recognition.addEventListener("result", (e) => {
+      const transcript = e.results[0][0].transcript;
+      input.value = transcript;
+      resizeInput();
+      input.focus();
+    });
+
+    recognition.addEventListener("end", () => {
+      micBtn.classList.remove("recording");
+    });
+
+    recognition.addEventListener("error", (e) => {
+      micBtn.classList.remove("recording");
+      if (e.error === "not-allowed") {
+        alert(currentLang === "fr"
+          ? "Accès au microphone refusé. Vérifiez les permissions du navigateur."
+          : "Microphone access denied. Check your browser permissions.");
+      }
+    });
+  }
 }

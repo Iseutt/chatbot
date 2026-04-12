@@ -299,6 +299,39 @@ h3 {
   background: var(--color-logo-accent);
 }
 
+#mic-btn {
+  padding: 0.65rem;
+  width: 2.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#mic-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+#mic-btn.recording {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  animation: mic-pulse 1.5s ease-in-out infinite;
+}
+
+#mic-btn.mic-unsupported {
+  display: none;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
 .btn-primary {
   padding: 0.65rem 1.15rem;
   border-radius: 0.65rem;
@@ -842,6 +875,11 @@ h3 {
     padding-left: 0.65rem;
     padding-right: 0.65rem;
     font-size: 0.8125rem;
+  }
+
+  #mic-btn {
+    flex: 0 0 2.75rem;
+    min-height: 2.75rem;
   }
 
   .settings-panel {
