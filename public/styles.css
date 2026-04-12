@@ -700,6 +700,27 @@ h3 {
   border-color: var(--color-primary);
 }
 
+.settings-section-label {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+}
+
+.settings-field--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-field--row label {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
 .settings-actions {
   display: flex;
   gap: 0.65rem;

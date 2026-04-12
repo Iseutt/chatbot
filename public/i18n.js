@@ -29,6 +29,12 @@ export const STRINGS = {
       "Clé GEMINI_API_KEY manquante. Copiez .env.example vers .env et ajoutez votre clé.",
     french: "Français",
     english: "English",
+    micSection: "Microphone",
+    micMode: "Mode de saisie",
+    micModeToggle: "Cliquer (activer/désactiver)",
+    micModeHold: "Maintenir le bouton",
+    micLive: "Transcription en direct",
+    micAutoSend: "Envoi automatique",
   },
   en: {
     appName: "AJ Revetement",
@@ -60,6 +66,12 @@ export const STRINGS = {
       "GEMINI_API_KEY is missing. Copy .env.example to .env and add your key.",
     french: "Français",
     english: "English",
+    micSection: "Microphone",
+    micMode: "Input mode",
+    micModeToggle: "Click (toggle on/off)",
+    micModeHold: "Hold to talk",
+    micLive: "Live transcription",
+    micAutoSend: "Auto-send",
   },
 };
 

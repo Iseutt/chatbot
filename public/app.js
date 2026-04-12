@@ -257,6 +257,9 @@ function openSettings() {
   const settings = getSettings();
   document.getElementById("settings-lang").value = project?.lang || settings.lang || currentLang;
   document.getElementById("settings-username").value = settings.username || "";
+  document.getElementById("settings-mic-mode").value = settings.micMode ?? "toggle";
+  document.getElementById("settings-mic-live").checked = settings.micLive ?? true;
+  document.getElementById("settings-mic-autosend").checked = settings.micAutoSend ?? false;
   document.getElementById("settings-overlay").removeAttribute("hidden");
 }
 
@@ -267,13 +270,17 @@ function closeSettings() {
 function saveSettingsPanel() {
   const lang = document.getElementById("settings-lang").value;
   const username = document.getElementById("settings-username").value.trim();
-  saveSettings({ lang, username });
+  const micMode = document.getElementById("settings-mic-mode").value;
+  const micLive = document.getElementById("settings-mic-live").checked;
+  const micAutoSend = document.getElementById("settings-mic-autosend").checked;
+  saveSettings({ lang, username, micMode, micLive, micAutoSend });
   currentLang = lang;
   if (project) {
     updateProject(project.id, { lang });
     project.lang = lang;
   }
   applyStrings(lang);
+  window._applyMicSettings?.();
   closeSettings();
 }
 
@@ -322,37 +329,80 @@ function wireListeners() {
   } else {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
-    recognition.interimResults = false;
 
-    micBtn.addEventListener("click", () => {
-      if (isLoading) return;
-      recognition.lang = currentLang === "fr" ? "fr-FR" : "en-US";
-      if (micBtn.classList.contains("recording")) {
-        recognition.stop();
+    function applyMicSettings() {
+      const s = getSettings();
+      recognition.interimResults = s.micLive ?? true;
+
+      // Clear previous mode listeners
+      micBtn.onmousedown = null;
+      micBtn.onmouseup = null;
+      micBtn.ontouchstart = null;
+      micBtn.ontouchend = null;
+      micBtn.onclick = null;
+
+      if ((s.micMode ?? "toggle") === "hold") {
+        const startRec = (e) => {
+          e.preventDefault();
+          if (isLoading) return;
+          recognition.lang = currentLang === "fr" ? "fr-FR" : "en-US";
+          recognition.start();
+          micBtn.classList.add("recording");
+        };
+        const stopRec = () => { recognition.stop(); };
+        micBtn.addEventListener("mousedown", startRec);
+        micBtn.addEventListener("touchstart", startRec, { passive: false });
+        micBtn.addEventListener("mouseup", stopRec);
+        micBtn.addEventListener("mouseleave", stopRec);
+        micBtn.addEventListener("touchend", stopRec);
       } else {
-        recognition.start();
-        micBtn.classList.add("recording");
+        micBtn.addEventListener("click", () => {
+          if (isLoading) return;
+          recognition.lang = currentLang === "fr" ? "fr-FR" : "en-US";
+          if (micBtn.classList.contains("recording")) {
+            recognition.stop();
+          } else {
+            recognition.start();
+            micBtn.classList.add("recording");
+          }
+        });
       }
-    });
+    }
 
     recognition.addEventListener("result", (e) => {
-      const transcript = e.results[0][0].transcript;
-      input.value = transcript;
+      let interim = "";
+      let final = "";
+      for (const r of e.results) {
+        if (r.isFinal) final += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      input.value = final || interim;
+      input.style.opacity = final ? "" : "0.6";
       resizeInput();
-      input.focus();
     });
 
     recognition.addEventListener("end", () => {
       micBtn.classList.remove("recording");
+      input.style.opacity = "";
+      const s = getSettings();
+      if ((s.micAutoSend ?? false) && input.value.trim()) {
+        sendMessage(input.value.trim());
+      } else {
+        input.focus();
+      }
     });
 
     recognition.addEventListener("error", (e) => {
       micBtn.classList.remove("recording");
+      input.style.opacity = "";
       if (e.error === "not-allowed") {
         alert(currentLang === "fr"
           ? "Accès au microphone refusé. Vérifiez les permissions du navigateur."
           : "Microphone access denied. Check your browser permissions.");
       }
     });
+
+    applyMicSettings();
+    window._applyMicSettings = applyMicSettings;
   }
 }

@@ -8,9 +8,10 @@ const PROJECTS_KEY = "ajr_projects";
 export function getSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { lang: "fr", username: "", ...JSON.parse(raw) } : { lang: "fr", username: "" };
+    const defaults = { lang: "fr", username: "", micMode: "toggle", micLive: true, micAutoSend: false };
+    return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
   } catch {
-    return { lang: "fr", username: "" };
+    return { lang: "fr", username: "", micMode: "toggle", micLive: true, micAutoSend: false };
   }
 }
 

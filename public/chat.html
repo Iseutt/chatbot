@@ -103,6 +103,26 @@
           />
         </div>
 
+        <p class="settings-section-label" data-i18n="micSection">Microphone</p>
+
+        <div class="settings-field">
+          <label for="settings-mic-mode" data-i18n="micMode">Mode de saisie</label>
+          <select id="settings-mic-mode">
+            <option value="toggle" data-i18n-opt="micModeToggle">Cliquer (activer/désactiver)</option>
+            <option value="hold" data-i18n-opt="micModeHold">Maintenir le bouton</option>
+          </select>
+        </div>
+
+        <div class="settings-field settings-field--row">
+          <label for="settings-mic-live" data-i18n="micLive">Transcription en direct</label>
+          <input type="checkbox" id="settings-mic-live" />
+        </div>
+
+        <div class="settings-field settings-field--row">
+          <label for="settings-mic-autosend" data-i18n="micAutoSend">Envoi automatique</label>
+          <input type="checkbox" id="settings-mic-autosend" />
+        </div>
+
         <div class="settings-actions">
           <button id="settings-close" class="btn-secondary" data-i18n="close">Fermer</button>
           <button id="settings-save" class="btn-primary" data-i18n="save">Enregistrer</button>
