@@ -2,6 +2,15 @@ import { t } from "./i18n.js";
 
 const SETTINGS_KEY = "ajr_settings";
 const PROJECTS_KEY = "ajr_projects";
+const CHARTE_KEY = "ajr_charte_accepted";
+
+export function isCharteAccepted() {
+  return localStorage.getItem(CHARTE_KEY) === "true";
+}
+
+export function acceptCharte() {
+  localStorage.setItem(CHARTE_KEY, "true");
+}
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 

@@ -5,6 +5,8 @@ import {
   getProjects,
   createProject,
   deleteProject,
+  isCharteAccepted,
+  acceptCharte,
 } from "./storage.js";
 
 let searchQuery = "";
@@ -18,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   currentLang = settings.lang || "fr";
 
   applyStrings(currentLang);
+  if (!isCharteAccepted()) openCharte();
   document.getElementById("lang-select").value = currentLang;
   renderProjectList();
   wireListeners();
@@ -154,6 +157,22 @@ function handleLangChange(newLang) {
   if (settingsLang) settingsLang.value = newLang;
 }
 
+// ── Charte ────────────────────────────────────────────────────────────────────
+
+function openCharte() {
+  document.getElementById("charte-overlay").removeAttribute("hidden");
+  document.getElementById("charte-accept-btn").focus();
+}
+
+function closeCharte() {
+  document.getElementById("charte-overlay").setAttribute("hidden", "");
+}
+
+function handleAcceptCharte() {
+  acceptCharte();
+  closeCharte();
+}
+
 // ── Settings panel ────────────────────────────────────────────────────────────
 
 function openSettings() {
@@ -209,4 +228,7 @@ function wireListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSettings();
   });
+
+  document.getElementById("charte-accept-btn").addEventListener("click", handleAcceptCharte);
+  document.getElementById("charte-download-btn").addEventListener("click", () => {});
 }
