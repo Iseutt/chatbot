@@ -22,7 +22,7 @@ export const STRINGS = {
     confirmDelete: "Supprimer ce projet ?",
     newProjectNamePrompt: "Nom du projet :",
     newProjectName: "Nouveau projet",
-    greeting: "Comment puis-je vous aider aujourd'hui ?",
+    greeting: "Commençons à travailler sur la fiche technique. Si vous avez des questions concernant autre chose, n'hésitez pas à demander.",
     serverError: "Erreur serveur",
     networkError: "Impossible de joindre le serveur. Est-il démarré ?",
     noApiKey:
@@ -77,7 +77,7 @@ export const STRINGS = {
     confirmDelete: "Delete this project?",
     newProjectNamePrompt: "Project name:",
     newProjectName: "New project",
-    greeting: "How can I help you today?",
+    greeting: "Let's start working on the technical sheet. If you have any questions concerning something else, feel free to ask.",
     serverError: "Server error",
     networkError: "Could not reach the server. Is it running?",
     noApiKey:

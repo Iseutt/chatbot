@@ -89,6 +89,23 @@ document.addEventListener("DOMContentLoaded", () => {
     appendMessage(msg);
   }
 
+  // Restore / start questionnaire for projects created with the new system
+  if (typeof project.techSheetStep === "number") {
+    techSheetAnswers = project.techSheetAnswers || {};
+    techSheetStep = project.techSheetStep;
+    const answersComplete = Object.keys(techSheetAnswers).length >= 5;
+    if (!answersComplete) {
+      techSheetMode = true;
+      if (thread.length === 1) {
+        // Brand-new project: add first question to thread and show chips
+        askTechSheetQuestion();
+      } else {
+        // Resuming mid-questionnaire after page reload: just show chips
+        renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+      }
+    }
+  }
+
   checkHealth();
   wireListeners();
 });
@@ -328,13 +345,6 @@ function saveSettingsPanel() {
 
 // ── Technical sheet questionnaire logic ──────────────────────────────────────
 
-function startTechSheetQuestionnaire() {
-  techSheetMode = true;
-  techSheetStep = 0;
-  techSheetAnswers = {};
-  askTechSheetQuestion();
-}
-
 function askTechSheetQuestion() {
   if (techSheetStep >= TECH_SHEET_QUESTIONS.length) {
     finishTechSheetQuestionnaire();
@@ -372,6 +382,9 @@ function handleChipAnswer(answer) {
   const q = TECH_SHEET_QUESTIONS[techSheetStep];
   techSheetAnswers[q.key] = answer;
   techSheetStep++;
+  updateProject(project.id, { techSheetStep, techSheetAnswers: { ...techSheetAnswers } });
+  project.techSheetStep = techSheetStep;
+  project.techSheetAnswers = { ...techSheetAnswers };
   thread.push({ role: "user", content: answer });
   appendMessage(thread[thread.length - 1]);
   persistThread();
@@ -381,18 +394,131 @@ function handleChipAnswer(answer) {
 function finishTechSheetQuestionnaire() {
   techSheetMode = false;
   hideChips();
-  const summary =
-    `Merci ! Voici les informations collectées pour votre fiche technique :\n\n` +
-    `• Moulure : ${techSheetAnswers.moulure}\n` +
-    `• Matériau : ${techSheetAnswers.materiau}\n` +
-    `• Calibre : ${techSheetAnswers.calibre}\n` +
-    `• Couleur : ${techSheetAnswers.couleur}\n` +
-    `• Type de vis : ${techSheetAnswers.vis}\n\n` +
-    `La fiche technique est prête à être générée.`;
-  const msg = { role: "assistant", content: summary };
+  updateProject(project.id, { techSheetStep: 5, techSheetAnswers: { ...techSheetAnswers } });
+  project.techSheetStep = 5;
+  project.techSheetAnswers = { ...techSheetAnswers };
+  const msg = {
+    role: "assistant",
+    content: currentLang === "fr"
+      ? "Parfait ! Toutes les informations sont collectées. Cliquez sur « Fiche technique » pour télécharger votre PDF."
+      : "Perfect! All information has been collected. Click \"Technical Sheet\" to download your PDF.",
+  };
   thread.push(msg);
   appendMessage(msg);
   persistThread();
+}
+
+// ── PDF generation ────────────────────────────────────────────────────────────
+
+function generateTechSheetPDF() {
+  const answers = project.techSheetAnswers || {};
+  const answersComplete = Object.keys(answers).length >= 5;
+
+  if (!answersComplete) {
+    appendMessage({
+      role: "assistant",
+      content: currentLang === "fr"
+        ? "Veuillez d'abord répondre aux 5 questions pour générer la fiche technique."
+        : "Please answer all 5 questions first to generate the technical sheet.",
+    });
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
+
+  // Page: 279mm × 216mm landscape
+  const m = 5;
+  const pw = 279;
+  const ph = 216;
+  const endX = pw - m;
+  const endY = ph - m;
+  const stripY = 160;   // y where bottom strip starts
+  const col1X = 98;     // first vertical divider
+  const col2X = 190;    // second vertical divider
+  const red = [139, 26, 26];
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.4);
+
+  // Outer border
+  doc.rect(m, m, endX - m, endY - m);
+
+  // Horizontal divider: main area / bottom strip
+  doc.line(m, stripY, endX, stripY);
+
+  // Vertical dividers in bottom strip
+  doc.line(col1X, stripY, col1X, endY);
+  doc.line(col2X, stripY, col2X, endY);
+
+  // ── Bottom Left: AJ Logo + Company Info ──────────────────────────────────
+  const lx = m + 4;
+  const ly = stripY + 5;
+
+  // Logo box
+  doc.setFillColor(...red);
+  doc.roundedRect(lx, ly, 13, 13, 1.2, 1.2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.text("AJ", lx + 6.5, ly + 8.5, { align: "center" });
+
+  // Company name
+  doc.setTextColor(...red);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("AJ REVÊTEMENT", lx + 16, ly + 5.5);
+
+  // Address
+  doc.setTextColor(30, 30, 30);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.text("5180 Rue Gaudet, Drummondville, QC J2E 1L9", lx, ly + 20);
+  doc.text("Téléphone: 819-388-8668", lx, ly + 26);
+
+  // ── Bottom Middle: Questionnaire Answers ─────────────────────────────────
+  const mx = col1X + 5;
+  let my = stripY + 10;
+  const answerRows = [
+    ["Moulure",     answers.moulure   || "—"],
+    ["Matériau",    answers.materiau  || "—"],
+    ["Calibre",     answers.calibre   || "—"],
+    ["Couleur",     answers.couleur   || "—"],
+    ["Type de vis", answers.vis       || "—"],
+  ];
+
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(7);
+  for (const [label, value] of answerRows) {
+    doc.setFont("helvetica", "bold");
+    doc.text(`${label} :`, mx, my);
+    doc.setFont("helvetica", "normal");
+    doc.text(value, mx + 30, my);
+    my += 7;
+  }
+
+  // ── Bottom Right: Project Info ────────────────────────────────────────────
+  const rx = col2X + 5;
+  let ry = stripY + 10;
+
+  doc.setTextColor(30, 30, 30);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text(project.name || "Projet", rx, ry);
+
+  ry += 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  const dateStr = new Date(project.createdAt).toLocaleDateString("fr-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  doc.text(dateStr, rx, ry);
+
+  // Save
+  const safeName = (project.name || "fiche").replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  doc.save(`fiche-technique-${safeName}.pdf`);
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────
@@ -415,9 +541,7 @@ function wireListeners() {
   input.addEventListener("input", resizeInput);
 
   techSheetBtn.addEventListener("click", () => {
-    if (!isLoading && !techSheetMode) {
-      startTechSheetQuestionnaire();
-    }
+    generateTechSheetPDF();
   });
 
   document.getElementById("gear-btn").addEventListener("click", openSettings);
