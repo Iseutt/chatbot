@@ -93,16 +93,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof project.techSheetStep === "number") {
     techSheetAnswers = project.techSheetAnswers || {};
     techSheetStep = project.techSheetStep;
-    const answersComplete = Object.keys(techSheetAnswers).length >= 5;
-    if (!answersComplete) {
+    const isMidQuestionnaire = techSheetStep > 0 || Object.keys(techSheetAnswers).length > 0;
+    const isNewProject = thread.length === 1 && techSheetStep === 0 && (project.techSheetSheets || []).length === 0;
+
+    if (isNewProject) {
       techSheetMode = true;
-      if (thread.length === 1) {
-        // Brand-new project: add first question to thread and show chips
-        askTechSheetQuestion();
-      } else {
-        // Resuming mid-questionnaire after page reload: just show chips
-        renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
-      }
+      askTechSheetQuestion();
+    } else if (isMidQuestionnaire) {
+      techSheetMode = true;
+      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
     }
   }
 
@@ -261,17 +260,40 @@ async function sendMessage(text) {
     }
 
     const data = await res.json();
+
+    // Strip [NOUVELLE_FICHE] marker if present
+    let responseText = data.text;
+    let newSheetTrigger = false;
+    if (responseText.includes("[NOUVELLE_FICHE]")) {
+      newSheetTrigger = true;
+      responseText = responseText.replace(/\[NOUVELLE_FICHE\]/g, "").trim();
+    }
+
     const assistantMsg = {
       role: "assistant",
-      content: data.text,
+      content: responseText,
       sources: data.sources,
       webSearchQueries: data.webSearchQueries,
     };
     thread.push(assistantMsg);
     appendMessage(assistantMsg);
     persistThread();
-    if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
-      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+
+    if (newSheetTrigger) {
+      techSheetMode = true;
+      techSheetStep = 0;
+      techSheetAnswers = {};
+      updateProject(project.id, { techSheetStep: 0, techSheetAnswers: {} });
+      project.techSheetStep = 0;
+      project.techSheetAnswers = {};
+      askTechSheetQuestion();
+    } else if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
+      const currentQ = TECH_SHEET_QUESTIONS[techSheetStep];
+      const followUp = currentLang === "fr"
+        ? `Avez-vous d'autres questions ou souhaitez-vous continuer la fiche technique ?\n\n${currentQ.question}`
+        : `Do you have any other questions or do you want to continue the technical sheet?\n\n${currentQ.question}`;
+      appendMessage({ role: "assistant", content: followUp });
+      renderChips(currentQ.answers);
     }
   } catch (err) {
     removeTyping();
@@ -282,7 +304,12 @@ async function sendMessage(text) {
     statusEl.textContent = err.message;
     statusEl.className = "status error";
     if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
-      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+      const currentQ = TECH_SHEET_QUESTIONS[techSheetStep];
+      const followUp = currentLang === "fr"
+        ? `Avez-vous d'autres questions ou souhaitez-vous continuer la fiche technique ?\n\n${currentQ.question}`
+        : `Do you have any other questions or do you want to continue the technical sheet?\n\n${currentQ.question}`;
+      appendMessage({ role: "assistant", content: followUp });
+      renderChips(currentQ.answers);
     }
   } finally {
     setLoading(false);
@@ -394,14 +421,24 @@ function handleChipAnswer(answer) {
 function finishTechSheetQuestionnaire() {
   techSheetMode = false;
   hideChips();
-  updateProject(project.id, { techSheetStep: 5, techSheetAnswers: { ...techSheetAnswers } });
-  project.techSheetStep = 5;
-  project.techSheetAnswers = { ...techSheetAnswers };
+
+  const completedSheet = { ...techSheetAnswers };
+  const updatedSheets = [...(project.techSheetSheets || []), completedSheet];
+  const sheetNum = updatedSheets.length;
+
+  techSheetAnswers = {};
+  techSheetStep = 0;
+
+  updateProject(project.id, { techSheetStep: 0, techSheetAnswers: {}, techSheetSheets: updatedSheets });
+  project.techSheetStep = 0;
+  project.techSheetAnswers = {};
+  project.techSheetSheets = updatedSheets;
+
   const msg = {
     role: "assistant",
     content: currentLang === "fr"
-      ? "Parfait ! Toutes les informations sont collectées. Cliquez sur « Fiche technique » pour télécharger votre PDF."
-      : "Perfect! All information has been collected. Click \"Technical Sheet\" to download your PDF.",
+      ? `Fiche ${sheetNum} complétée ! Cliquez sur « Fiche technique » pour générer votre PDF, ou demandez-moi d'en créer une nouvelle si vous avez besoin d'une autre fiche.`
+      : `Sheet ${sheetNum} completed! Click "Technical Sheet" to generate your PDF, or ask me to create a new one if you need another sheet.`,
   };
   thread.push(msg);
   appendMessage(msg);
@@ -410,44 +447,22 @@ function finishTechSheetQuestionnaire() {
 
 // ── PDF generation ────────────────────────────────────────────────────────────
 
-function generateTechSheetPDF() {
-  const answers = project.techSheetAnswers || {};
-  const answersComplete = Object.keys(answers).length >= 5;
-
-  if (!answersComplete) {
-    appendMessage({
-      role: "assistant",
-      content: currentLang === "fr"
-        ? "Veuillez d'abord répondre aux 5 questions pour générer la fiche technique."
-        : "Please answer all 5 questions first to generate the technical sheet.",
-    });
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
-
-  // Page: 279mm × 216mm landscape
+function drawTechSheetPage(doc, answers, sheetIndex) {
   const m = 5;
   const pw = 279;
   const ph = 216;
   const endX = pw - m;
   const endY = ph - m;
-  const stripY = 160;   // y where bottom strip starts
-  const col1X = 98;     // first vertical divider
-  const col2X = 190;    // second vertical divider
+  const stripY = 160;
+  const col1X = 98;
+  const col2X = 190;
   const red = [139, 26, 26];
 
   doc.setDrawColor(0);
   doc.setLineWidth(0.4);
 
-  // Outer border
   doc.rect(m, m, endX - m, endY - m);
-
-  // Horizontal divider: main area / bottom strip
   doc.line(m, stripY, endX, stripY);
-
-  // Vertical dividers in bottom strip
   doc.line(col1X, stripY, col1X, endY);
   doc.line(col2X, stripY, col2X, endY);
 
@@ -455,7 +470,6 @@ function generateTechSheetPDF() {
   const lx = m + 4;
   const ly = stripY + 5;
 
-  // Logo box
   doc.setFillColor(...red);
   doc.roundedRect(lx, ly, 13, 13, 1.2, 1.2, "F");
   doc.setTextColor(255, 255, 255);
@@ -463,20 +477,18 @@ function generateTechSheetPDF() {
   doc.setFontSize(6.5);
   doc.text("AJ", lx + 6.5, ly + 8.5, { align: "center" });
 
-  // Company name
   doc.setTextColor(...red);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.text("AJ REVÊTEMENT", lx + 16, ly + 5.5);
 
-  // Address
   doc.setTextColor(30, 30, 30);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.text("5180 Rue Gaudet, Drummondville, QC J2E 1L9", lx, ly + 20);
   doc.text("Téléphone: 819-388-8668", lx, ly + 26);
 
-  // ── Bottom Middle: Questionnaire Answers ─────────────────────────────────
+  // ── Bottom Middle: Answers ────────────────────────────────────────────────
   const mx = col1X + 5;
   let my = stripY + 10;
   const answerRows = [
@@ -504,7 +516,10 @@ function generateTechSheetPDF() {
   doc.setTextColor(30, 30, 30);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.text(project.name || "Projet", rx, ry);
+  const sheetLabel = (project.techSheetSheets || []).length > 1
+    ? `${project.name || "Projet"} — Fiche ${sheetIndex + 1}`
+    : (project.name || "Projet");
+  doc.text(sheetLabel, rx, ry);
 
   ry += 8;
   doc.setFont("helvetica", "normal");
@@ -515,8 +530,29 @@ function generateTechSheetPDF() {
     day: "numeric",
   });
   doc.text(dateStr, rx, ry);
+}
 
-  // Save
+function generateTechSheetPDF() {
+  const sheets = project.techSheetSheets || [];
+
+  if (sheets.length === 0) {
+    appendMessage({
+      role: "assistant",
+      content: currentLang === "fr"
+        ? "Veuillez d'abord répondre aux questions pour générer la fiche technique."
+        : "Please answer all questions first to generate the technical sheet.",
+    });
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "letter" });
+
+  sheets.forEach((answers, index) => {
+    if (index > 0) doc.addPage();
+    drawTechSheetPage(doc, answers, index);
+  });
+
   const safeName = (project.name || "fiche").replace(/[^a-z0-9]/gi, "-").toLowerCase();
   doc.save(`fiche-technique-${safeName}.pdf`);
 }

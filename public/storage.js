@@ -61,6 +61,7 @@ export function createProject(name, lang) {
     thread: [{ role: "assistant", content: t(lang, "greeting") }],
     techSheetStep: 0,
     techSheetAnswers: {},
+    techSheetSheets: [],
   };
   const projects = getProjects();
   projects.unshift(project);
