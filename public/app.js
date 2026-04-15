@@ -448,17 +448,35 @@ function finishTechSheetQuestionnaire() {
 // ── Technical drawing helpers ─────────────────────────────────────────────────
 
 const _D = {
-  SCALE:      15,       // mm per inch
-  PT:         0.25,     // mm per ReportLab point  (15/60)
-  THK:        0.75,     // profile line width mm
-  DIM_LW:     0.175,    // dimension line width mm
-  R_ARC:      0.46875,  // (1/16 inch * 15 mm/in) / 2
-  EXT_GAP:    1.5,      // 6 pts
-  EXT_OVSH:   2.0,      // 8 pts
-  OVSH:       0.3745,   // 1.498 pts
-  ARR_L:      1.55,     // 6.2 pts
-  ARR_W:      0.725,    // 2.9 pts
+  SCALE:   15,       // mm per inch (default)
+  THK:     0.75,     // profile line width mm
+  DIM_LW:  0.175,    // dimension line width mm
+  EXT_GAP: 1.5,      // extension line gap mm
+  EXT_OVSH:2.0,      // extension line overshoot mm
+  OVSH:    0.3745,   // line overshoot at corners mm
+  ARR_L:   1.55,     // arrowhead length mm
+  ARR_W:   0.725,    // arrowhead half-width mm
 };
+
+// 180° arc via two bezier segments (jsPDF has no native arc method)
+// startDeg/endDeg in jsPDF screen degrees (0=right,90=down); antiCCW=true → CCW
+function _arc(doc, cx, cy, R, startDeg, endDeg, antiCCW) {
+  const KAPPA = 0.5522847498;
+  const sign  = antiCCW ? -1 : 1;   // CW=+1, CCW=-1
+
+  function pt(d)  { const r = d * Math.PI / 180; return [cx + R * Math.cos(r), cy + R * Math.sin(r)]; }
+  function tan(d) { const r = d * Math.PI / 180; return [-sign * Math.sin(r), sign * Math.cos(r)]; }
+
+  const a0 = startDeg, a1 = startDeg + sign * 90, a2 = endDeg;
+  const [x0, y0] = pt(a0), [x1, y1] = pt(a1), [x2, y2] = pt(a2);
+  const [t0x, t0y] = tan(a0), [t1x, t1y] = tan(a1), [t2x, t2y] = tan(a2);
+  const kr = KAPPA * R;
+
+  doc.moveTo(x0, y0);
+  doc.curveTo(x0 + kr * t0x, y0 + kr * t0y, x1 - kr * t1x, y1 - kr * t1y, x1, y1);
+  doc.curveTo(x1 + kr * t1x, y1 + kr * t1y, x2 - kr * t2x, y2 - kr * t2y, x2, y2);
+  doc.stroke();
+}
 
 function _drawArrow(doc, x, y, ux, uy, nx, ny, dir) {
   const tx1 = x + dir * _D.ARR_L * ux + _D.ARR_W * nx;
@@ -470,15 +488,13 @@ function _drawArrow(doc, x, y, ux, uy, nx, ny, dir) {
 }
 
 function _dimLine(doc, xa, ya, xb, yb, label) {
-  const dx = xb - xa, dy = yb - ya;
-  const len = Math.hypot(dx, dy);
+  const dx = xb - xa, dy = yb - ya, len = Math.hypot(dx, dy);
   if (len < 0.01) return;
-  const ux = dx / len, uy = dy / len;
-  const nx = -uy, ny = ux;
+  const ux = dx / len, uy = dy / len, nx = -uy;
   doc.setLineWidth(_D.DIM_LW);
   doc.line(xa + _D.ARR_L * ux, ya + _D.ARR_L * uy, xb - _D.ARR_L * ux, yb - _D.ARR_L * uy);
-  _drawArrow(doc, xa, ya, ux, uy, nx, ny, +1);
-  _drawArrow(doc, xb, yb, ux, uy, nx, ny, -1);
+  _drawArrow(doc, xa, ya, ux, uy, nx, ux, +1);
+  _drawArrow(doc, xb, yb, ux, uy, nx, ux, -1);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(2.5);
   doc.setTextColor(0);
@@ -486,281 +502,211 @@ function _dimLine(doc, xa, ya, xb, yb, label) {
   doc.text(label, (xa + xb) / 2, (ya + yb) / 2 - 1.0, { angle, align: "center" });
 }
 
-// dim_h_with_ext: vertical extension lines, horizontal dim line
+// vertical extension lines → horizontal dim line
 function _dimH(doc, xa, ya, xb, yb, yDim, label) {
   doc.setLineWidth(_D.DIM_LW);
-  doc.line(xa, ya + (yDim >= ya ? _D.EXT_GAP : -_D.EXT_GAP), xa, yDim + (yDim >= ya ? _D.OVSH : -_D.OVSH));
-  doc.line(xb, yb + (yDim >= yb ? _D.EXT_GAP : -_D.EXT_GAP), xb, yDim + (yDim >= yb ? _D.OVSH : -_D.OVSH));
+  doc.line(xa, ya + (yDim >= ya ? _D.EXT_GAP : -_D.EXT_GAP), xa, yDim + (yDim >= ya ? _D.EXT_OVSH : -_D.EXT_OVSH));
+  doc.line(xb, yb + (yDim >= yb ? _D.EXT_GAP : -_D.EXT_GAP), xb, yDim + (yDim >= yb ? _D.EXT_OVSH : -_D.EXT_OVSH));
   _dimLine(doc, xa, yDim, xb, yDim, label);
 }
 
-// dim_v_with_ext: horizontal extension lines, vertical dim line
+// horizontal extension lines → vertical dim line
 function _dimV(doc, xa, ya, xb, yb, xDim, label) {
   doc.setLineWidth(_D.DIM_LW);
-  doc.line(xa + (xDim >= xa ? _D.EXT_GAP : -_D.EXT_GAP), ya, xDim + (xDim >= xa ? _D.OVSH : -_D.OVSH), ya);
-  doc.line(xb + (xDim >= xb ? _D.EXT_GAP : -_D.EXT_GAP), yb, xDim + (xDim >= xb ? _D.OVSH : -_D.OVSH), yb);
+  doc.line(xa + (xDim >= xa ? _D.EXT_GAP : -_D.EXT_GAP), ya, xDim + (xDim >= xa ? _D.EXT_OVSH : -_D.EXT_OVSH), ya);
+  doc.line(xb + (xDim >= xb ? _D.EXT_GAP : -_D.EXT_GAP), yb, xDim + (xDim >= xb ? _D.EXT_OVSH : -_D.EXT_OVSH), yb);
   _dimLine(doc, xDim, ya, xDim, yb, label);
 }
 
-function _inchLabel(valueIn) {
-  const DENOM = 16;
-  const total = Math.round(valueIn * DENOM);
-  const whole = Math.floor(total / DENOM);
-  const rem = total % DENOM;
-  if (rem === 0) return `${whole}"`;
-  // reduce fraction
-  const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
-  const g = gcd(rem, DENOM);
-  const n = rem / g, d = DENOM / g;
-  return whole === 0 ? `${n}/${d}"` : `${whole} ${n}/${d}"`;
-}
-
-// ── Liner double ──────────────────────────────────────────────────────────────
-function drawLiner(doc, CX, CY) {
-  const S = _D.SCALE;
-  const H_total = 6.0 * S;
-  const V_total = 0.75 * S;
-  const radius  = _D.R_ARC;
-  const spacing = radius * 2;
-  const V_straight = Math.max(0, V_total - radius);
-
-  const x_left = CX - H_total / 2;
-  const x_right = CX + H_total / 2;
-  const vxL = CX - spacing / 2;
-  const vxR = CX + spacing / 2;
-  const y_base = CY;
-  const y_top_tan = y_base - V_straight;
-
-  doc.setLineWidth(_D.THK);
-  doc.line(x_left,  y_base,   vxL, y_base);
-  doc.line(vxL,     y_base,   vxL, y_top_tan);
-  // top arc: CCW from left tangent to right tangent going upward
-  doc.arc(CX, y_top_tan, spacing / 2, spacing / 2, 180, 0, true, "S");
-  doc.line(vxR, y_top_tan, vxR, y_base);
-  doc.line(vxR, y_base, x_right, y_base);
-
-  // dimensions
-  const yDimBot = y_base + 11.25;
-  const yDimTop = y_top_tan - radius - 11.25;
-  const xDimL   = x_left - 8.75;
-
-  _dimH(doc, x_left, y_base, CX, y_base, yDimBot, _inchLabel(3.0));
-  _dimH(doc, CX, y_base, x_right, y_base, yDimBot, _inchLabel(3.0));
-  _dimV(doc, vxL, y_base, vxL, y_top_tan - radius, xDimL, _inchLabel(0.75));
-}
-
-// ── Coin extérieur 3" / 4" (shared geometry) ─────────────────────────────────
-function _drawCoinExterieur(doc, CX, CY, H4_in, H5_in) {
-  const S  = _D.SCALE;
-  const R1 = _D.R_ARC, R2 = _D.R_ARC;
-  const OV = _D.OVSH;
-
-  const H1 = 3.0  * S;
-  const H2 = 0.75 * S;
-  const H3t = 0.75 * S;
-  const H4t = H4_in * S;
-  const H5t = H5_in * S;
-  const H6t = 0.75 * S;
-  const H7  = 0.75 * S;
-  const H8  = 3.0  * S;
-
-  const H3_line = Math.max(0, H3t - R1);
-  const H4_line = Math.max(0, H4t - R1);
-  const H5_line = Math.max(0, H5t - R2);
-  const H6_line = Math.max(0, H6t - R2);
-
-  // origin — offset so drawing is roughly centred
-  const x0 = CX;
-  const y0 = CY + H1 * 0.3;  // shift down a bit so the profile centres vertically
-
-  // 1) jambe verticale (goes UP)
-  const x1 = x0, y1 = y0 - H1;
-  // 2) retour horizontal haut (goes LEFT)
-  const x2 = x1 - H2, y2 = y1;
-  // 3) retour vertical (goes DOWN)
-  const x3 = x2, y3 = y2 + H3_line;
-  // arc 1: centre left of x3, at y3; draws right→below→left in jsPDF
-  const cx1 = x3 - R1, cy1 = y3;
-  const x_arc1_left = cx1 - R1, y_arc1_left = y3;
-  const x_arc1_bot  = cx1,      y_arc1_bot  = cy1 + R1;
-  // 4+5) montant vertical (goes UP from arc bottom-left)
-  const x4 = x_arc1_left, y4 = y_arc1_left;
-  const x5 = x4,          y5 = y4 - H4_line;
-  // 6) tablette horizontale (goes RIGHT)
-  const x6 = x5, y6 = y5;
-  const x7 = x6 + H5_line, y7 = y6;
-  // arc 2: above x7,y7; draws above→right→below
-  const cx2 = x7, cy2 = y7 + R2;
-  const x_arc2_bot   = x7,      y_arc2_bot   = y7 + 2 * R2;
-  const x_arc2_right = x7 + R2, y_arc2_right = cy2;
-  // 8) petit retour horizontal (goes LEFT)
-  const x8 = x_arc2_bot, y8 = y_arc2_bot;
-  const x9 = x8 - H6_line, y9 = y8;
-  // 9) petit retour vertical (goes DOWN)
-  const x10 = x9, y10 = y9 + H7;
-  // 10) base horizontale (goes RIGHT)
-  const x11 = x10 + H8, y11 = y10;
-
-  doc.setLineWidth(_D.THK);
-  doc.line(x0 - OV, y0, x1 - OV, y1);                         // jambe
-  doc.line(x1 + OV, y1, x2 - OV, y2);                         // retour H haut
-  doc.line(x2, y2, x3, y3);                                    // retour V haut
-  doc.arc(cx1, cy1, R1, R1, 0, 180, false, "S");               // arc1
-  doc.line(x4, y4, x5, y5);                                    // montant V
-  doc.line(x6 - OV, y6, x7 + OV, y7);                         // tablette H
-  doc.arc(cx2, cy2, R2, R2, 270, 90, false, "S");              // arc2
-  doc.line(x8 + OV, y8, x9 - OV, y9);                         // petit retour H
-  doc.line(x9, y9, x10, y10);                                  // petit retour V
-  doc.line(x10 - OV, y10, x11 + OV, y11);                     // base H
-
-  // dimensions
-  const off = 6.25;   // 25 pts * PT_TO_MM
-  const offL = 6.25, offR = 6.25, offS = 3.75, offIn = 7.5, offBot = 11.25, offTop = 6.25, offBotSm = 5.0;
-
-  _dimV(doc, x0, y0, x1, y1, x0 + offR, _inchLabel(3.0));
-  _dimH(doc, x2, y2, x1, y1, y2 - offTop, _inchLabel(0.75));
-  _dimV(doc, x_arc1_bot, y_arc1_bot, x2, y2, x3 + offS, _inchLabel(0.75));
-  _dimV(doc, x_arc1_bot, y_arc1_bot, x5, y5, x5 - offL, _inchLabel(H4_in));
-  _dimH(doc, x6, y6, x_arc2_right, y_arc2_right, y6 - offTop, _inchLabel(H5_in));
-  _dimH(doc, x9, y9, x_arc2_right, y_arc2_right, y9 + offBotSm, _inchLabel(0.75));
-  _dimV(doc, x10, y10, x9, y9, x10 - offIn, _inchLabel(0.75));
-  _dimH(doc, x10, y10, x11, y11, y10 + offBot, _inchLabel(3.0));
-}
-
-function drawCoinExterieur3(doc, CX, CY) { _drawCoinExterieur(doc, CX, CY, 3.0, 3.0); }
-function drawCoinExterieur4(doc, CX, CY) { _drawCoinExterieur(doc, CX, CY, 4.0, 4.0); }
-
-// ── Coin extérieur 45° ────────────────────────────────────────────────────────
-function drawCoinExterieur45(doc, CX, CY) {
-  const S = _D.SCALE;
-  const R = _D.R_ARC;
-  const KAPPA = 0.5522847498;
-
-  const L1 = 2.0  * S;
-  const L2t = 0.75 * S;
-  const L3t = 0.75 * S;
-  const L4 = 2.0  * S;
-
-  const angle_int = 135.0;
-  const theta_deg = -(180.0 - angle_int);   // = -45°
-  const theta = theta_deg * Math.PI / 180;
-
-  // In jsPDF (Y-down), uy must be negated relative to RL
-  const ux =  Math.cos(theta);
-  const uy = -Math.sin(theta);   // Y-flip
-  const nx = -uy, ny = ux;
-
-  const l2_line = Math.max(0, L2t - R);
-  const l3_line = Math.max(0, L3t - R);
-
-  const x0 = CX - L1 / 2;
-  const y0 = CY;
-
-  const x1 = x0 + L1,  y1 = y0;
-  const x2 = x1 + l2_line * ux,  y2 = y1 + l2_line * uy;
-
-  const arc_cx = x2 + R * nx;
-  const arc_cy = y2 + R * ny;
-
-  // start angle for the arc in RL: angle from center to p2
-  const start_rl = Math.atan2(-(y2 - arc_cy), x2 - arc_cx) * 180 / Math.PI;  // negate dy for RL
-  // convert to jsPDF arc angles: extent=+180 (CCW) → antiCCW=true
-  const start_js = -start_rl;
-  const end_js   = -(start_rl + 180);
-
-  // p3 = opposite end of arc from p2
-  const x3 = arc_cx - (x2 - arc_cx);
-  const y3 = arc_cy - (y2 - arc_cy);
-
-  const x4 = x3 - l3_line * ux,  y4 = y3 - l3_line * uy;
-  const x5 = x4,                  y5 = y4 + L4;
-
-  // point on arc along diagonal direction (for dim line)
-  const x_arc_diag = arc_cx + R * ux;
-  const y_arc_diag = arc_cy + R * uy;
-
-  doc.setLineWidth(_D.THK);
-  doc.line(x0, y0, x1, y1);
-  doc.line(x1, y1, x2, y2);
-  doc.arc(arc_cx, arc_cy, R, R, start_js, end_js, true, "S");
-  doc.line(x3, y3, x4, y4);
-  doc.line(x4, y4, x5, y5);
-
-  // dimensions
-  const offH = 7.5, offV = 6.25, offDiag = -4.5;
-  _dimH(doc, x0, y0, x1, y1, y0 + offH, _inchLabel(2.0));
-  // diagonal dim (aligned)
-  _dimAligned(doc, x1, y1, x_arc_diag, y_arc_diag, offDiag, _inchLabel(0.75));
-  _dimV(doc, x4, y4, x5, y5, x5 + offV, _inchLabel(2.0));
-}
-
 function _dimAligned(doc, xa, ya, xb, yb, offset, label) {
-  const dx = xb - xa, dy = yb - ya;
-  const len = Math.hypot(dx, dy);
+  const dx = xb - xa, dy = yb - ya, len = Math.hypot(dx, dy);
   if (len < 0.01) return;
-  const ux = dx / len, uy = dy / len;
-  const nx = -uy, ny = ux;
+  const ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
   const sign = offset >= 0 ? 1 : -1;
-
   const q1x = xa + offset * nx, q1y = ya + offset * ny;
   const q2x = xb + offset * nx, q2y = yb + offset * ny;
-
   doc.setLineWidth(_D.DIM_LW);
   doc.line(xa + sign * _D.EXT_GAP * nx, ya + sign * _D.EXT_GAP * ny,
            q1x + sign * _D.EXT_OVSH * nx, q1y + sign * _D.EXT_OVSH * ny);
   doc.line(xb + sign * _D.EXT_GAP * nx, yb + sign * _D.EXT_GAP * ny,
            q2x + sign * _D.EXT_OVSH * nx, q2y + sign * _D.EXT_OVSH * ny);
-
   _dimLine(doc, q1x, q1y, q2x, q2y, label);
+}
+
+function _inchLabel(v) {
+  const D = 16, t = Math.round(v * D), w = Math.floor(t / D), r = t % D;
+  if (r === 0) return `${w}"`;
+  const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+  const g = gcd(r, D), n = r / g, d = D / g;
+  return w === 0 ? `${n}/${d}"` : `${w} ${n}/${d}"`;
+}
+
+// ── Liner double ──────────────────────────────────────────────────────────────
+function drawLiner(doc, CX, CY) {
+  const S = _D.SCALE;
+  const radius   = (1 / 16) * S / 2;   // R_ARC
+  const spacing  = radius * 2;
+  const H_total  = 6.0 * S;
+  const V_total  = 0.75 * S;
+  const V_straight = Math.max(0, V_total - radius);
+
+  const x_left = CX - H_total / 2, x_right = CX + H_total / 2;
+  const vxL = CX - spacing / 2,    vxR = CX + spacing / 2;
+  const y_base = CY, y_top_tan = y_base - V_straight;
+  const y_ext  = y_top_tan - radius;   // bezier control point height
+
+  doc.setLineWidth(_D.THK);
+  doc.line(x_left, y_base, vxL, y_base);
+  doc.line(vxL, y_base, vxL, y_top_tan);
+  // top arc: bezier from vxL to vxR curving upward
+  doc.moveTo(vxL, y_top_tan);
+  doc.curveTo(vxL, y_ext, vxR, y_ext, vxR, y_top_tan);
+  doc.stroke();
+  doc.line(vxR, y_top_tan, vxR, y_base);
+  doc.line(vxR, y_base, x_right, y_base);
+
+  // dimensions
+  doc.setLineWidth(_D.THK);
+  _dimH(doc, x_left, y_base, CX,      y_base, y_base + 11.25, _inchLabel(3.0));
+  _dimH(doc, CX,     y_base, x_right, y_base, y_base + 11.25, _inchLabel(3.0));
+  _dimV(doc, vxL,    y_base, vxL,     y_ext,  x_left - 8.75,  _inchLabel(0.75));
+}
+
+// ── Coin extérieur 3" / 4" (shared geometry, S = scale mm/inch) ───────────────
+function _drawCoinExterieur(doc, CX, CY, H4_in, H5_in, S) {
+  const R1 = (1 / 16) * S / 2, R2 = R1;
+  const OV = _D.OVSH;
+  const ptm = S / 60;   // pt→mm scaling for dim offsets
+
+  const H1 = 3.0 * S, H2 = 0.75 * S, H3t = 0.75 * S;
+  const H4t = H4_in * S, H5t = H5_in * S, H6t = 0.75 * S;
+  const H7 = 0.75 * S,  H8 = 3.0 * S;
+
+  const H3_line = Math.max(0, H3t - R1), H4_line = Math.max(0, H4t - R1);
+  const H5_line = Math.max(0, H5t - R2), H6_line = Math.max(0, H6t - R2);
+
+  const x0 = CX, y0 = CY + H1 * 0.3;
+
+  const x1 = x0,       y1 = y0 - H1;            // jambe verticale (UP)
+  const x2 = x1 - H2,  y2 = y1;                 // retour H haut (LEFT)
+  const x3 = x2,       y3 = y2 + H3_line;       // retour V (DOWN)
+  const cx1 = x3 - R1, cy1 = y3;                // arc1 center
+  const x_arc1_left = cx1 - R1, y_arc1_left = y3;
+  const x_arc1_bot  = cx1,      y_arc1_bot   = cy1 + R1;
+  const x4 = x_arc1_left, y4 = y_arc1_left;
+  const x5 = x4,           y5 = y4 - H4_line;   // montant V (UP)
+  const x6 = x5, y6 = y5;
+  const x7 = x6 + H5_line, y7 = y6;             // tablette H (RIGHT)
+  const cx2 = x7, cy2 = y7 + R2;                // arc2 center
+  const x_arc2_bot   = x7,      y_arc2_bot   = y7 + 2 * R2;
+  const x_arc2_right = x7 + R2, y_arc2_right = cy2;
+  const x8 = x_arc2_bot, y8 = y_arc2_bot;
+  const x9 = x8 - H6_line, y9 = y8;            // petit retour H (LEFT)
+  const x10 = x9, y10 = y9 + H7;               // petit retour V (DOWN)
+  const x11 = x10 + H8, y11 = y10;             // base H (RIGHT)
+
+  doc.setLineWidth(_D.THK);
+  doc.line(x0 - OV, y0,  x1 - OV, y1);
+  doc.line(x1 + OV, y1,  x2 - OV, y2);
+  doc.line(x2,      y2,  x3,      y3);
+  _arc(doc, cx1, cy1, R1, 0,   180, false);   // CW: right→below→left
+  doc.setLineWidth(_D.THK);
+  doc.line(x4, y4, x5, y5);
+  doc.line(x6 - OV, y6, x7 + OV, y7);
+  _arc(doc, cx2, cy2, R2, 270, 90,  false);   // CW: above→right→below
+  doc.setLineWidth(_D.THK);
+  doc.line(x8 + OV, y8,  x9 - OV, y9);
+  doc.line(x9,      y9,  x10,     y10);
+  doc.line(x10 - OV, y10, x11 + OV, y11);
+
+  const offR = 25*ptm, offTop = 25*ptm, offS = 15*ptm, offL = 25*ptm;
+  const offIn = 30*ptm, offBot = 45*ptm, offBotSm = 20*ptm;
+
+  _dimV(doc, x0,          y0,          x1,            y1,          x0 + offR,   _inchLabel(3.0));
+  _dimH(doc, x2,          y2,          x1,            y1,          y2 - offTop, _inchLabel(0.75));
+  _dimV(doc, x_arc1_bot,  y_arc1_bot,  x2,            y2,          x3 + offS,   _inchLabel(0.75));
+  _dimV(doc, x_arc1_bot,  y_arc1_bot,  x5,            y5,          x5 - offL,   _inchLabel(H4_in));
+  _dimH(doc, x6,          y6,          x_arc2_right,  y_arc2_right, y6 - offTop, _inchLabel(H5_in));
+  _dimH(doc, x9,          y9,          x_arc2_right,  y_arc2_right, y9 + offBotSm, _inchLabel(0.75));
+  _dimV(doc, x10,         y10,         x9,            y9,          x10 - offIn, _inchLabel(0.75));
+  _dimH(doc, x10,         y10,         x11,           y11,         y10 + offBot, _inchLabel(3.0));
+}
+
+function drawCoinExterieur3(doc, CX, CY) { _drawCoinExterieur(doc, CX, CY, 3.0, 3.0, 15); }
+function drawCoinExterieur4(doc, CX, CY) { _drawCoinExterieur(doc, CX, CY, 4.0, 4.0, 12); }
+
+// ── Coin extérieur 45° ────────────────────────────────────────────────────────
+function drawCoinExterieur45(doc, CX, CY) {
+  const S = _D.SCALE;
+  const R = (1 / 16) * S / 2;
+
+  const L1 = 2.0 * S, L2t = 0.75 * S, L3t = 0.75 * S, L4 = 2.0 * S;
+
+  const theta = -45 * Math.PI / 180;   // interior angle 135° → theta = -45°
+  const ux =  Math.cos(theta);
+  const uy = -Math.sin(theta);          // Y-flip for jsPDF
+  const nx = -uy, ny = ux;
+
+  const l2_line = Math.max(0, L2t - R), l3_line = Math.max(0, L3t - R);
+
+  const x0 = CX - L1 / 2, y0 = CY;
+  const x1 = x0 + L1,     y1 = y0;
+  const x2 = x1 + l2_line * ux, y2 = y1 + l2_line * uy;
+
+  const arc_cx = x2 + R * nx, arc_cy = y2 + R * ny;
+
+  // jsPDF start angle = direct atan2 in jsPDF coords (Y-down)
+  const start_js = Math.atan2(y2 - arc_cy, x2 - arc_cx) * 180 / Math.PI;
+  const end_js   = start_js - 180;   // CCW 180° arc → subtract 180
+
+  const x3 = arc_cx - (x2 - arc_cx), y3 = arc_cy - (y2 - arc_cy);
+  const x4 = x3 - l3_line * ux, y4 = y3 - l3_line * uy;
+  const x5 = x4,                y5 = y4 + L4;
+
+  const x_arc_diag = arc_cx + R * ux, y_arc_diag = arc_cy + R * uy;
+
+  doc.setLineWidth(_D.THK);
+  doc.line(x0, y0, x1, y1);
+  doc.line(x1, y1, x2, y2);
+  _arc(doc, arc_cx, arc_cy, R, start_js, end_js, true);   // CCW 180°
+  doc.setLineWidth(_D.THK);
+  doc.line(x3, y3, x4, y4);
+  doc.line(x4, y4, x5, y5);
+
+  _dimH(doc, x0, y0, x1, y1, y0 + 7.5, _inchLabel(2.0));
+  _dimAligned(doc, x1, y1, x_arc_diag, y_arc_diag, -4.5, _inchLabel(0.75));
+  _dimV(doc, x4, y4, x5, y5, x5 + 6.25, _inchLabel(2.0));
 }
 
 // ── Facia 6" ─────────────────────────────────────────────────────────────────
 function drawFacia6(doc, CX, CY) {
-  const S = _D.SCALE;
-  const R = 3 * _D.PT;   // 3 pts
+  const S  = _D.SCALE;
+  const R  = 3 * (S / 60);   // 3 ReportLab pts converted to mm
   const OV = _D.OVSH;
 
-  const V1  = 6.0  * S;
-  const H1t = 1.25 * S;
-  const D3p = 0.5  * S;
+  const V1      = 6.0  * S;
+  const H1_line = Math.max(0, 1.25 * S - R);
+  const D3p     = 0.5  * S;
 
-  const H1_line = Math.max(0, H1t - R);
-
-  // position: y_offset_rl = 180 pts → 45mm; negate for jsPDF
-  const x0 = CX - 5.0;
-  const y0 = CY - 45.0;
-
-  // 1) verticale descendante (DOWN in jsPDF)
-  const x1 = x0, y1 = y0 + V1;
-
-  // 2) horizontale droite
+  const x0 = CX - 5.0, y0 = CY - 45.0;
+  const x1 = x0,        y1 = y0 + V1;     // vertical descends (DOWN)
   const x2 = x1 + H1_line, y2 = y1;
   const x_right_ext = x2 + R;
-
-  // 3) arc ")" — center is R above y1 in jsPDF (above = smaller y)
-  const cx3 = x2, cy3 = y1 - R;
-  const x_arc_end = x2, y_arc_end = y1 - 2 * R;
-
-  // petit retour gauche
+  const cx3 = x2, cy3 = y1 - R;           // arc center: R above y1
+  const y_arc_end = y1 - 2 * R;
   const x3 = x_right_ext - D3p, y3 = y_arc_end;
 
   doc.setLineWidth(_D.THK);
   doc.line(x0, y0, x1, y1);
   doc.line(x1 - OV, y1, x2 + OV, y2);
-  // arc from (x2, y1) → right → (x2, y_arc_end): CCW in jsPDF
-  doc.arc(cx3, cy3, R, R, 90, 270, true, "S");
-  if (x3 < x_arc_end) {
-    doc.line(x_arc_end + OV, y_arc_end, x3 - OV, y3);
-  }
+  // arc from (x2,y1) CCW via right to (x2,y_arc_end): startDeg=90, endDeg=270, CCW
+  _arc(doc, cx3, cy3, R, 90, 270, true);
+  doc.setLineWidth(_D.THK);
+  if (x3 < x2) doc.line(x2 + OV, y_arc_end, x3 - OV, y3);
 
-  // dimensions
-  const xDimV  = x0 - 8.75;
-  const yDimH1 = y1 + 11.25;
-  const yDimD3 = y_arc_end - 11.25;
-
-  _dimV(doc, x0, y0, x1, y1, xDimV, _inchLabel(6.0));
-  _dimH(doc, x1, y1, x_right_ext, y1, yDimH1, _inchLabel(1.25));
-  _dimH(doc, x3, y3, x_right_ext, y3, yDimD3, _inchLabel(0.5));
+  _dimV(doc, x0,  y0,  x1,           y1,  x0 - 8.75,    _inchLabel(6.0));
+  _dimH(doc, x1,  y1,  x_right_ext,  y1,  y1 + 11.25,   _inchLabel(1.25));
+  _dimH(doc, x3,  y3,  x_right_ext,  y3,  y_arc_end - 11.25, _inchLabel(0.5));
 }
 
 // ── PDF generation ────────────────────────────────────────────────────────────
