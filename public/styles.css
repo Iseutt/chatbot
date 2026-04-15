@@ -180,11 +180,55 @@ h3 {
   margin-bottom: 0.25rem;
 }
 
+.composer-area {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+}
+
+.answer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-bottom: 0.65rem;
+}
+
+.answer-chips[hidden] {
+  display: none;
+}
+
+.answer-chip {
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.65rem;
+  border: 1.5px solid var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.answer-chip:hover {
+  background: var(--color-primary);
+  color: var(--color-text-on-red);
+}
+
+.answer-chip:active {
+  background: var(--color-logo-accent);
+  color: var(--color-text-on-red);
+  border-color: var(--color-logo-accent);
+}
+
+.answer-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .composer {
   display: flex;
   gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border);
   align-items: flex-end;
 }
 

@@ -8,6 +8,40 @@ let thread = [];
 let currentLang = "fr";
 let isLoading = false;
 
+// ── Technical sheet questionnaire ─────────────────────────────────────────────
+
+const TECH_SHEET_QUESTIONS = [
+  {
+    key: "moulure",
+    question: "Quelle moulure souhaitez-vous utiliser ?",
+    answers: ["Liner double", "Coin exterieur 3", "Coin exterieur 4", "Coin exterieur 45", "Facia 6"],
+  },
+  {
+    key: "materiau",
+    question: "Quel type de matériau utilisez-vous ?",
+    answers: ["Acier", "Aluminium"],
+  },
+  {
+    key: "calibre",
+    question: "Quel calibre souhaitez-vous ?",
+    answers: ["22", "24", "26"],
+  },
+  {
+    key: "couleur",
+    question: "Quelle couleur voulez-vous ?",
+    answers: ["Noir", "Blanc", "Gris", "Brun"],
+  },
+  {
+    key: "vis",
+    question: "Quel type de vis utilisez-vous ?",
+    answers: ["Auto-perceuse", "Vis colorée", "Vis standard"],
+  },
+];
+
+let techSheetMode = false;
+let techSheetStep = 0;
+let techSheetAnswers = {};
+
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
 const messagesEl = document.getElementById("messages");
@@ -16,6 +50,7 @@ const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 const techSheetBtn = document.getElementById("tech-sheet-btn");
 const statusEl = document.getElementById("status");
+const answerChipsEl = document.getElementById("answer-chips");
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
@@ -163,6 +198,7 @@ function setLoading(on) {
   input.disabled = on;
   sendBtn.disabled = on;
   techSheetBtn.disabled = on;
+  answerChipsEl.querySelectorAll(".answer-chip").forEach((btn) => { btn.disabled = on; });
   statusEl.textContent = on ? t(currentLang, "thinking") : "";
   statusEl.className = "status";
 }
@@ -217,6 +253,9 @@ async function sendMessage(text) {
     thread.push(assistantMsg);
     appendMessage(assistantMsg);
     persistThread();
+    if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
+      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+    }
   } catch (err) {
     removeTyping();
     appendMessage({
@@ -225,6 +264,9 @@ async function sendMessage(text) {
     });
     statusEl.textContent = err.message;
     statusEl.className = "status error";
+    if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
+      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+    }
   } finally {
     setLoading(false);
   }
@@ -284,6 +326,75 @@ function saveSettingsPanel() {
   closeSettings();
 }
 
+// ── Technical sheet questionnaire logic ──────────────────────────────────────
+
+function startTechSheetQuestionnaire() {
+  techSheetMode = true;
+  techSheetStep = 0;
+  techSheetAnswers = {};
+  askTechSheetQuestion();
+}
+
+function askTechSheetQuestion() {
+  if (techSheetStep >= TECH_SHEET_QUESTIONS.length) {
+    finishTechSheetQuestionnaire();
+    return;
+  }
+  const q = TECH_SHEET_QUESTIONS[techSheetStep];
+  const msg = { role: "assistant", content: q.question };
+  thread.push(msg);
+  appendMessage(msg);
+  persistThread();
+  renderChips(q.answers);
+}
+
+function renderChips(answers) {
+  answerChipsEl.innerHTML = "";
+  for (const answer of answers) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "answer-chip";
+    btn.textContent = answer;
+    btn.addEventListener("click", () => handleChipAnswer(answer));
+    answerChipsEl.appendChild(btn);
+  }
+  answerChipsEl.removeAttribute("hidden");
+}
+
+function hideChips() {
+  answerChipsEl.setAttribute("hidden", "");
+  answerChipsEl.innerHTML = "";
+}
+
+function handleChipAnswer(answer) {
+  if (isLoading) return;
+  hideChips();
+  const q = TECH_SHEET_QUESTIONS[techSheetStep];
+  techSheetAnswers[q.key] = answer;
+  techSheetStep++;
+  thread.push({ role: "user", content: answer });
+  appendMessage(thread[thread.length - 1]);
+  persistThread();
+  askTechSheetQuestion();
+}
+
+function finishTechSheetQuestionnaire() {
+  techSheetMode = false;
+  hideChips();
+  const summary =
+    `Merci ! Voici les informations collectées pour votre fiche technique :\n\n` +
+    `• Moulure : ${techSheetAnswers.moulure}\n` +
+    `• Matériau : ${techSheetAnswers.materiau}\n` +
+    `• Calibre : ${techSheetAnswers.calibre}\n` +
+    `• Couleur : ${techSheetAnswers.couleur}\n` +
+    `• Type de vis : ${techSheetAnswers.vis}\n\n` +
+    `La fiche technique est prête à être générée.`;
+  const msg = { role: "assistant", content: summary };
+  thread.push(msg);
+  appendMessage(msg);
+  persistThread();
+}
+
 // ── Event wiring ──────────────────────────────────────────────────────────────
 
 function wireListeners() {
@@ -304,7 +415,9 @@ function wireListeners() {
   input.addEventListener("input", resizeInput);
 
   techSheetBtn.addEventListener("click", () => {
-    sendMessage(t(currentLang, "techSheetPrompt"));
+    if (!isLoading && !techSheetMode) {
+      startTechSheetQuestionnaire();
+    }
   });
 
   document.getElementById("gear-btn").addEventListener("click", openSettings);
