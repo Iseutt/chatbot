@@ -57,7 +57,11 @@ function cloneQuestions(list) {
 
 function getQuestions() {
   const custom = getCustomQuestions();
-  return custom && custom.length ? custom : DEFAULT_TECH_SHEET_QUESTIONS;
+  if (!custom || !custom.length) return DEFAULT_TECH_SHEET_QUESTIONS;
+  // Back-fill labels from defaults for any matching key (handles stored lists
+  // that pre-date the label field, and preserves custom labels if set).
+  const defaultLabels = new Map(DEFAULT_TECH_SHEET_QUESTIONS.map(q => [q.key, q.label]));
+  return custom.map(q => ({ ...q, label: q.label || defaultLabels.get(q.key) }));
 }
 
 // ── Customization: pure list operations ───────────────────────────────────────
