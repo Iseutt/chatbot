@@ -56,7 +56,7 @@ function sanitizeDisplayName(raw) {
   return noControls.length > max ? noControls.slice(0, max) : noControls;
 }
 
-function buildSystemInstruction(lang, displayName) {
+function buildSystemInstruction(lang, displayName, questions) {
   const langName = lang === "en" ? "English" : "French";
   let text =
     SYSTEM_INSTRUCTION_BASE +
@@ -66,7 +66,58 @@ function buildSystemInstruction(lang, displayName) {
     text += `\n\nUser context: The person you are assisting has set their display name to "${displayName}". Use it when addressing them when it fits naturally. If they ask what their name is (or similar), answer using this display name.`;
   }
 
+  if (Array.isArray(questions)) {
+    text += `\n\nCurrent tech-sheet questionnaire (JSON):\n${JSON.stringify(questions)}\n` +
+      `\nThe user can customize this questionnaire by chatting with you. When, and ONLY when, the user clearly asks to change it, emit one or more of the following markers at the VERY END of your reply, each on its own line. Fields are separated by a pipe character ("|"). Do not invent extra fields. Never emit these markers outside of an explicit user request to change the questionnaire.\n` +
+      `\nGrammar:\n` +
+      `[CUSTOMIZE_ADD_OPTION|question=<existing-key>|value=<text>]\n` +
+      `[CUSTOMIZE_REMOVE_OPTION|question=<existing-key>|value=<text>]\n` +
+      `[CUSTOMIZE_ADD_QUESTION|key=<new-snake-case-key>|question=<text>|answers=<comma,separated,values>]\n` +
+      `[CUSTOMIZE_REMOVE_QUESTION|key=<existing-key>]\n` +
+      `[CUSTOMIZE_RENAME_QUESTION|key=<existing-key>|newQuestion=<text>]\n` +
+      `[CUSTOMIZE_RENAME_OPTION|question=<existing-key>|old=<text>|new=<text>]\n` +
+      `[CUSTOMIZE_RESET]\n` +
+      `\nRules:\n` +
+      `- "question" / "key" must exactly match an existing key from the JSON above, except for CUSTOMIZE_ADD_QUESTION where you generate a short new snake_case key (lowercase ASCII, no spaces) that does not collide with any existing key.\n` +
+      `- Field values may contain spaces and accented characters, but must not contain the characters "|" or "]".\n` +
+      `- Always also write a short natural-language confirmation in the body of your reply (the markers are stripped from the displayed text before the user sees it).\n` +
+      `- If the user asks for something ambiguous, ask a clarifying question and do NOT emit any marker.\n`;
+  }
+
   return text;
+}
+
+const MAX_QUESTIONS = 50;
+const MAX_QUESTIONS_JSON_BYTES = 10_000;
+
+function validateQuestions(raw) {
+  if (raw === undefined || raw === null) return { ok: true, value: undefined };
+  if (!Array.isArray(raw)) return { ok: false, reason: "questions must be an array" };
+  if (raw.length > MAX_QUESTIONS) return { ok: false, reason: `too many questions (>${MAX_QUESTIONS})` };
+
+  let serialized;
+  try {
+    serialized = JSON.stringify(raw);
+  } catch {
+    return { ok: false, reason: "questions not serializable" };
+  }
+  if (Buffer.byteLength(serialized, "utf8") > MAX_QUESTIONS_JSON_BYTES) {
+    return { ok: false, reason: "questions payload too large" };
+  }
+
+  const seen = new Set();
+  for (const q of raw) {
+    if (!q || typeof q !== "object") return { ok: false, reason: "each question must be an object" };
+    if (typeof q.key !== "string" || !q.key) return { ok: false, reason: "question.key must be a non-empty string" };
+    if (seen.has(q.key)) return { ok: false, reason: `duplicate key "${q.key}"` };
+    seen.add(q.key);
+    if (typeof q.question !== "string" || !q.question) return { ok: false, reason: "question.question must be a non-empty string" };
+    if (!Array.isArray(q.answers)) return { ok: false, reason: "question.answers must be an array" };
+    for (const a of q.answers) {
+      if (typeof a !== "string") return { ok: false, reason: "each answer must be a string" };
+    }
+  }
+  return { ok: true, value: raw };
 }
 
 function toGeminiContents(messages) {
@@ -138,13 +189,18 @@ app.post("/api/chat", async (req, res) => {
     });
   }
 
-  const { messages, language, userName, username } = req.body ?? {};
+  const { messages, language, userName, username, questions } = req.body ?? {};
   const lang = language === "en" ? "en" : "fr";
   const displayName = sanitizeDisplayName(
     typeof userName === "string" ? userName : typeof username === "string" ? username : ""
   );
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Expected a non-empty messages array." });
+  }
+
+  const qCheck = validateQuestions(questions);
+  if (!qCheck.ok) {
+    return res.status(400).json({ error: `Invalid questions: ${qCheck.reason}` });
   }
 
   const last = messages[messages.length - 1];
@@ -162,7 +218,7 @@ app.post("/api/chat", async (req, res) => {
     const ai = new GoogleGenAI({ apiKey });
 
     const baseConfig = {
-      systemInstruction: buildSystemInstruction(lang, displayName),
+      systemInstruction: buildSystemInstruction(lang, displayName, qCheck.value),
     };
     const withSearch = { ...baseConfig, tools: [{ googleSearch: {} }] };
 

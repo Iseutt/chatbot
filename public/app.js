@@ -1,5 +1,13 @@
 import { t } from "./i18n.js";
-import { getSettings, saveSettings, getProject, updateProject } from "./storage.js";
+import {
+  getSettings,
+  saveSettings,
+  getProject,
+  updateProject,
+  getCustomQuestions,
+  setCustomQuestions,
+  resetCustomQuestions,
+} from "./storage.js";
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -10,7 +18,7 @@ let isLoading = false;
 
 // ── Technical sheet questionnaire ─────────────────────────────────────────────
 
-const TECH_SHEET_QUESTIONS = [
+const DEFAULT_TECH_SHEET_QUESTIONS = [
   {
     key: "moulure",
     question: "Quelle moulure souhaitez-vous utiliser ?",
@@ -37,6 +45,213 @@ const TECH_SHEET_QUESTIONS = [
     answers: ["Auto-perceuse", "Vis colorée", "Vis standard"],
   },
 ];
+
+function cloneQuestions(list) {
+  return list.map((q) => ({ key: q.key, question: q.question, answers: [...q.answers] }));
+}
+
+function getQuestions() {
+  const custom = getCustomQuestions();
+  return custom && custom.length ? custom : DEFAULT_TECH_SHEET_QUESTIONS;
+}
+
+// ── Customization: pure list operations ───────────────────────────────────────
+
+function _findQ(list, key) {
+  return list.findIndex((q) => q.key === key);
+}
+
+function addOption(list, questionKey, value) {
+  const i = _findQ(list, questionKey);
+  if (i === -1) return { ok: false, reason: `question "${questionKey}" not found` };
+  if (!value) return { ok: false, reason: "empty value" };
+  if (list[i].answers.includes(value)) return { ok: false, reason: `"${value}" already exists` };
+  list[i].answers.push(value);
+  return { ok: true, question: list[i].question };
+}
+
+function removeOption(list, questionKey, value) {
+  const i = _findQ(list, questionKey);
+  if (i === -1) return { ok: false, reason: `question "${questionKey}" not found` };
+  const idx = list[i].answers.indexOf(value);
+  if (idx === -1) return { ok: false, reason: `"${value}" not in options` };
+  list[i].answers.splice(idx, 1);
+  return { ok: true, question: list[i].question };
+}
+
+function addQuestion(list, { key, question, answers }) {
+  if (!key || !question || !Array.isArray(answers) || answers.length === 0) {
+    return { ok: false, reason: "missing key/question/answers" };
+  }
+  if (_findQ(list, key) !== -1) return { ok: false, reason: `key "${key}" already exists` };
+  list.push({ key, question, answers: [...answers] });
+  return { ok: true };
+}
+
+function removeQuestion(list, questionKey) {
+  const i = _findQ(list, questionKey);
+  if (i === -1) return { ok: false, reason: `question "${questionKey}" not found` };
+  const [removed] = list.splice(i, 1);
+  return { ok: true, question: removed.question };
+}
+
+function renameQuestion(list, questionKey, newQuestion) {
+  const i = _findQ(list, questionKey);
+  if (i === -1) return { ok: false, reason: `question "${questionKey}" not found` };
+  if (!newQuestion) return { ok: false, reason: "empty new question text" };
+  const old = list[i].question;
+  list[i].question = newQuestion;
+  return { ok: true, old };
+}
+
+function renameOption(list, questionKey, oldValue, newValue) {
+  const i = _findQ(list, questionKey);
+  if (i === -1) return { ok: false, reason: `question "${questionKey}" not found` };
+  const idx = list[i].answers.indexOf(oldValue);
+  if (idx === -1) return { ok: false, reason: `"${oldValue}" not in options` };
+  if (!newValue) return { ok: false, reason: "empty new value" };
+  list[i].answers[idx] = newValue;
+  return { ok: true, question: list[i].question };
+}
+
+// ── Customization: marker parsing / application ───────────────────────────────
+
+const CUSTOMIZE_MARKER_RE = /\[CUSTOMIZE_[A-Z_]+(?:\|[^\]]*)?\]/g;
+
+function parseMarker(raw) {
+  // raw like "[CUSTOMIZE_ADD_OPTION|question=materiau|value=Plastique]"
+  const inner = raw.slice(1, -1); // strip [ ]
+  const parts = inner.split("|");
+  const type = parts[0]; // e.g. CUSTOMIZE_ADD_OPTION
+  const fields = {};
+  for (let i = 1; i < parts.length; i++) {
+    const eq = parts[i].indexOf("=");
+    if (eq === -1) continue;
+    const k = parts[i].slice(0, eq).trim();
+    const v = parts[i].slice(eq + 1).trim();
+    fields[k] = v;
+  }
+  return { type, fields };
+}
+
+function fmt(lang, key, vars) {
+  let s = t(lang, key);
+  for (const k in vars) s = s.replaceAll(`{${k}}`, vars[k]);
+  return s;
+}
+
+/**
+ * Parses all [CUSTOMIZE_*|...] markers in `text`, mutates a working copy of
+ * the current question list, and persists. Returns:
+ *   { cleanText, applied: [humanString, ...] }
+ * Also, if options on the currently-answered questions are renamed, we rewrite
+ * the stored techSheetAnswers to keep them consistent.
+ */
+function applyCustomizationMarkers(text) {
+  const matches = text.match(CUSTOMIZE_MARKER_RE);
+  if (!matches || matches.length === 0) {
+    return { cleanText: text, applied: [] };
+  }
+
+  const cleanText = text.replace(CUSTOMIZE_MARKER_RE, "").trim();
+  const applied = [];
+
+  // Work on a deep clone so failures don't leave partial state.
+  let list = cloneQuestions(getQuestions());
+  let reset = false;
+  const answerRewrites = []; // { key, newValue } for rename-option on answered q's
+
+  for (const raw of matches) {
+    const { type, fields } = parseMarker(raw);
+
+    if (type === "CUSTOMIZE_RESET") {
+      reset = true;
+      list = cloneQuestions(DEFAULT_TECH_SHEET_QUESTIONS);
+      applied.push(t(currentLang, "customizeReset"));
+      continue;
+    }
+
+    let r;
+    switch (type) {
+      case "CUSTOMIZE_ADD_OPTION":
+        r = addOption(list, fields.question, fields.value);
+        if (r.ok) applied.push(fmt(currentLang, "customizeAddedOption", { value: fields.value, question: r.question }));
+        break;
+      case "CUSTOMIZE_REMOVE_OPTION":
+        r = removeOption(list, fields.question, fields.value);
+        if (r.ok) applied.push(fmt(currentLang, "customizeRemovedOption", { value: fields.value, question: r.question }));
+        break;
+      case "CUSTOMIZE_ADD_QUESTION": {
+        const answers = (fields.answers || "").split(",").map((s) => s.trim()).filter(Boolean);
+        r = addQuestion(list, { key: fields.key, question: fields.question, answers });
+        if (r.ok) applied.push(fmt(currentLang, "customizeAddedQuestion", { question: fields.question }));
+        break;
+      }
+      case "CUSTOMIZE_REMOVE_QUESTION":
+        r = removeQuestion(list, fields.key);
+        if (r.ok) applied.push(fmt(currentLang, "customizeRemovedQuestion", { question: r.question }));
+        break;
+      case "CUSTOMIZE_RENAME_QUESTION":
+        r = renameQuestion(list, fields.key, fields.newQuestion);
+        if (r.ok) applied.push(fmt(currentLang, "customizeRenamedQuestion", { old: r.old, new: fields.newQuestion }));
+        break;
+      case "CUSTOMIZE_RENAME_OPTION":
+        r = renameOption(list, fields.question, fields.old, fields.new);
+        if (r.ok) {
+          applied.push(fmt(currentLang, "customizeRenamedOption", { question: r.question, old: fields.old, new: fields.new }));
+          answerRewrites.push({ key: fields.question, oldValue: fields.old, newValue: fields.new });
+        }
+        break;
+      default:
+        r = { ok: false, reason: `unknown marker ${type}` };
+    }
+
+    if (r && !r.ok) {
+      applied.push(fmt(currentLang, "customizeFailed", { reason: r.reason }));
+    }
+  }
+
+  // Persist the resolved list (or clear on reset).
+  if (reset) {
+    resetCustomQuestions();
+  } else {
+    setCustomQuestions(list);
+  }
+
+  // Rewrite stored answers if a currently-answered option was renamed.
+  if (answerRewrites.length && project && techSheetAnswers) {
+    let changed = false;
+    for (const { key, oldValue, newValue } of answerRewrites) {
+      if (techSheetAnswers[key] === oldValue) {
+        techSheetAnswers[key] = newValue;
+        changed = true;
+      }
+    }
+    if (changed) {
+      updateProject(project.id, { techSheetAnswers: { ...techSheetAnswers } });
+      project.techSheetAnswers = { ...techSheetAnswers };
+    }
+  }
+
+  return { cleanText, applied };
+}
+
+/**
+ * After customizations are applied, re-sync the active questionnaire UI:
+ *  - If techSheetMode is off, nothing to do.
+ *  - If the questionnaire shrunk past the current step, finish it.
+ *  - Otherwise, re-render chips for the (possibly changed) current question.
+ */
+function reconcileQuestionnaireAfterCustomization() {
+  if (!techSheetMode) return;
+  const questions = getQuestions();
+  if (techSheetStep >= questions.length) {
+    finishTechSheetQuestionnaire();
+    return;
+  }
+  hideChips();
+  renderChips(questions[techSheetStep].answers);
+}
 
 let techSheetMode = false;
 let techSheetStep = 0;
@@ -101,7 +316,10 @@ document.addEventListener("DOMContentLoaded", () => {
       askTechSheetQuestion();
     } else if (isMidQuestionnaire) {
       techSheetMode = true;
-      renderChips(TECH_SHEET_QUESTIONS[techSheetStep].answers);
+      const questions = getQuestions();
+      if (techSheetStep < questions.length) {
+        renderChips(questions[techSheetStep].answers);
+      }
     }
   }
 
@@ -249,6 +467,7 @@ async function sendMessage(text) {
         messages: apiMessages,
         language: currentLang,
         ...(userName ? { userName } : {}),
+        questions: getQuestions(),
       }),
     });
 
@@ -261,8 +480,11 @@ async function sendMessage(text) {
 
     const data = await res.json();
 
+    // Apply questionnaire customization markers, if any, and strip them.
+    const customResult = applyCustomizationMarkers(data.text);
+    let responseText = customResult.cleanText;
+
     // Strip [NOUVELLE_FICHE] marker if present
-    let responseText = data.text;
     let newSheetTrigger = false;
     if (responseText.includes("[NOUVELLE_FICHE]")) {
       newSheetTrigger = true;
@@ -279,6 +501,17 @@ async function sendMessage(text) {
     appendMessage(assistantMsg);
     persistThread();
 
+    // Show confirmation bubbles for each applied customization, then re-sync UI.
+    if (customResult.applied.length) {
+      for (const line of customResult.applied) {
+        const msg = { role: "assistant", content: line };
+        thread.push(msg);
+        appendMessage(msg);
+      }
+      persistThread();
+      reconcileQuestionnaireAfterCustomization();
+    }
+
     if (newSheetTrigger) {
       techSheetMode = true;
       techSheetStep = 0;
@@ -287,13 +520,16 @@ async function sendMessage(text) {
       project.techSheetStep = 0;
       project.techSheetAnswers = {};
       askTechSheetQuestion();
-    } else if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
-      const currentQ = TECH_SHEET_QUESTIONS[techSheetStep];
+    } else if (techSheetMode && techSheetStep < getQuestions().length) {
+      const currentQ = getQuestions()[techSheetStep];
       const followUp = currentLang === "fr"
         ? `Avez-vous d'autres questions ou souhaitez-vous continuer la fiche technique ?\n\n${currentQ.question}`
         : `Do you have any other questions or do you want to continue the technical sheet?\n\n${currentQ.question}`;
       appendMessage({ role: "assistant", content: followUp });
       renderChips(currentQ.answers);
+    } else if (techSheetMode && techSheetStep >= getQuestions().length) {
+      // Questionnaire may have shrunk via customization — finish it.
+      finishTechSheetQuestionnaire();
     }
   } catch (err) {
     removeTyping();
@@ -303,8 +539,8 @@ async function sendMessage(text) {
     });
     statusEl.textContent = err.message;
     statusEl.className = "status error";
-    if (techSheetMode && techSheetStep < TECH_SHEET_QUESTIONS.length) {
-      const currentQ = TECH_SHEET_QUESTIONS[techSheetStep];
+    if (techSheetMode && techSheetStep < getQuestions().length) {
+      const currentQ = getQuestions()[techSheetStep];
       const followUp = currentLang === "fr"
         ? `Avez-vous d'autres questions ou souhaitez-vous continuer la fiche technique ?\n\n${currentQ.question}`
         : `Do you have any other questions or do you want to continue the technical sheet?\n\n${currentQ.question}`;
@@ -373,11 +609,12 @@ function saveSettingsPanel() {
 // ── Technical sheet questionnaire logic ──────────────────────────────────────
 
 function askTechSheetQuestion() {
-  if (techSheetStep >= TECH_SHEET_QUESTIONS.length) {
+  const questions = getQuestions();
+  if (techSheetStep >= questions.length) {
     finishTechSheetQuestionnaire();
     return;
   }
-  const q = TECH_SHEET_QUESTIONS[techSheetStep];
+  const q = questions[techSheetStep];
   const msg = { role: "assistant", content: q.question };
   thread.push(msg);
   appendMessage(msg);
@@ -406,7 +643,7 @@ function hideChips() {
 function handleChipAnswer(answer) {
   if (isLoading) return;
   hideChips();
-  const q = TECH_SHEET_QUESTIONS[techSheetStep];
+  const q = getQuestions()[techSheetStep];
   techSheetAnswers[q.key] = answer;
   techSheetStep++;
   updateProject(project.id, { techSheetStep, techSheetAnswers: { ...techSheetAnswers } });
@@ -770,13 +1007,10 @@ function drawTechSheetPage(doc, answers, sheetIndex) {
   // ── Bottom Middle: Answers ────────────────────────────────────────────────
   const mx = col1X + 5;
   let my = stripY + 10;
-  const answerRows = [
-    ["Moulure",     answers.moulure   || "—"],
-    ["Matériau",    answers.materiau  || "—"],
-    ["Calibre",     answers.calibre   || "—"],
-    ["Couleur",     answers.couleur   || "—"],
-    ["Type de vis", answers.vis       || "—"],
-  ];
+  const answerRows = getQuestions().map((q) => {
+    const label = q.question.replace(/\s*[?:]\s*$/, "");
+    return [label, answers[q.key] || "—"];
+  });
 
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(7);

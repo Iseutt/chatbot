@@ -3,6 +3,7 @@ import { t } from "./i18n.js";
 const SETTINGS_KEY = "ajr_settings";
 const PROJECTS_KEY = "ajr_projects";
 const CHARTE_KEY = "ajr_charte_accepted";
+const CUSTOM_QUESTIONS_KEY = "ajr_custom_questions_v1";
 
 export function isCharteAccepted() {
   return localStorage.getItem(CHARTE_KEY) === "true";
@@ -80,4 +81,26 @@ export function updateProject(id, patch) {
 export function deleteProject(id) {
   const projects = getProjects().filter((p) => p.id !== id);
   saveProjects(projects);
+}
+
+// ── Custom questionnaire (user-wide) ──────────────────────────────────────────
+
+export function getCustomQuestions() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_QUESTIONS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCustomQuestions(arr) {
+  if (!Array.isArray(arr)) return;
+  localStorage.setItem(CUSTOM_QUESTIONS_KEY, JSON.stringify(arr));
+}
+
+export function resetCustomQuestions() {
+  localStorage.removeItem(CUSTOM_QUESTIONS_KEY);
 }
