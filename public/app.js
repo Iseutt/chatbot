@@ -21,33 +21,38 @@ let isLoading = false;
 const DEFAULT_TECH_SHEET_QUESTIONS = [
   {
     key: "moulure",
+    label: "Nom de la moulure",
     question: "Quelle moulure souhaitez-vous utiliser ?",
     answers: ["Liner double", "Coin exterieur 3", "Coin exterieur 4", "Coin exterieur 45", "Facia 6"],
   },
   {
     key: "materiau",
+    label: "Type de matériaux",
     question: "Quel type de matériau utilisez-vous ?",
     answers: ["Acier", "Aluminium"],
   },
   {
     key: "calibre",
+    label: "Calibre",
     question: "Quel calibre souhaitez-vous ?",
     answers: ["22", "24", "26"],
   },
   {
     key: "couleur",
+    label: "Couleur",
     question: "Quelle couleur voulez-vous ?",
     answers: ["Noir", "Blanc", "Gris", "Brun"],
   },
   {
     key: "vis",
+    label: "Type de vis",
     question: "Quel type de vis utilisez-vous ?",
     answers: ["Auto-perceuse", "Vis colorée", "Vis standard"],
   },
 ];
 
 function cloneQuestions(list) {
-  return list.map((q) => ({ key: q.key, question: q.question, answers: [...q.answers] }));
+  return list.map((q) => ({ key: q.key, question: q.question, label: q.label, answers: [...q.answers] }));
 }
 
 function getQuestions() {
@@ -984,41 +989,53 @@ function drawTechSheetPage(doc, answers, sheetIndex) {
 
   // ── Bottom Left: AJ Logo + Company Info ──────────────────────────────────
   const lx = m + 4;
-  const ly = stripY + 5;
+  const ly = stripY + 4;
 
-  doc.setFillColor(...red);
-  doc.roundedRect(lx, ly, 13, 13, 1.2, 1.2, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.text("AJ", lx + 6.5, ly + 8.5, { align: "center" });
+  // Draw geometric "A" logo mark
+  const aW = 14, aH = 16;
+  doc.setDrawColor(...red);
+  doc.setLineWidth(1.5);
+  // Left leg: bottom-left → peak
+  doc.line(lx,           ly + aH, lx + aW / 2, ly);
+  // Right leg: bottom-right → peak
+  doc.line(lx + aW,      ly + aH, lx + aW / 2, ly);
+  // Crossbar at ~52% from bottom
+  doc.line(lx + aW * 0.22, ly + aH * 0.48, lx + aW * 0.78, ly + aH * 0.48);
 
+  // Reset draw state
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.4);
+
+  // Company name inline with the logo
   doc.setTextColor(...red);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.text("AJ REVÊTEMENT", lx + 16, ly + 5.5);
+  doc.text("AJ REVÊTEMENT", lx + aW + 3, ly + 7);
 
   doc.setTextColor(30, 30, 30);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
-  doc.text("5180 Rue Gaudet, Drummondville, QC J2E 1L9", lx, ly + 20);
-  doc.text("Téléphone: 819-388-8668", lx, ly + 26);
+  doc.text("5180 Rue Gaudet, Drummondville, QC J2E 1L9", lx, ly + aH + 5);
+  doc.text("Téléphone: 819-388-8668", lx, ly + aH + 11);
 
   // ── Bottom Middle: Answers ────────────────────────────────────────────────
   const mx = col1X + 5;
   let my = stripY + 10;
   const answerRows = getQuestions().map((q) => {
-    const label = q.question.replace(/\s*[?:]\s*$/, "");
+    const label = q.label || q.question.replace(/\s*[?:]\s*$/, "");
     return [label, answers[q.key] || "—"];
   });
 
   doc.setTextColor(30, 30, 30);
   doc.setFontSize(7);
   for (const [label, value] of answerRows) {
+    // Draw "- Label :" in bold, then value in normal on the same line
+    const boldPart = `- ${label} : `;
     doc.setFont("helvetica", "bold");
-    doc.text(`${label} :`, mx, my);
+    doc.text(boldPart, mx, my);
+    const bw = doc.getTextWidth(boldPart);
     doc.setFont("helvetica", "normal");
-    doc.text(value, mx + 30, my);
+    doc.text(value, mx + bw, my);
     my += 7;
   }
 
