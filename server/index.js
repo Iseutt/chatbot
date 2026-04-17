@@ -26,7 +26,7 @@ app.use(express.json({ limit: "512kb" }));
 app.use(
   express.static(publicDir, {
     setHeaders(res, filePath) {
-      if (filePath.endsWith(".css")) {
+      if (filePath.endsWith(".css") || filePath.endsWith(".js")) {
         res.setHeader("Cache-Control", "no-store, max-age=0");
       }
     },

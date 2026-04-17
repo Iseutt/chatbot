@@ -342,7 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const settings = getSettings();
-  currentLang = project.lang || settings.lang || "fr";
+  // Global settings language takes priority — ensures switching language on the
+  // landing page is immediately reflected in both the questionnaire chips and
+  // the chat, even for projects created before the switch.
+  currentLang = settings.lang || project.lang || "fr";
 
   applyStrings(currentLang);
 
@@ -625,7 +628,7 @@ function resizeInput() {
 
 function openSettings() {
   const settings = getSettings();
-  document.getElementById("settings-lang").value = project?.lang || settings.lang || currentLang;
+  document.getElementById("settings-lang").value = settings.lang || project?.lang || currentLang;
   document.getElementById("settings-username").value = settings.username || "";
   document.getElementById("settings-mic-mode").value = settings.micMode ?? "toggle";
   document.getElementById("settings-mic-live").checked = settings.micLive ?? true;
