@@ -96,11 +96,18 @@ function getQuestions() {
   const defaults = getDefaultQuestions(currentLang);
   const custom = getCustomQuestions();
   if (!custom || !custom.length) return defaults;
-  // Back-fill labels from the current-language defaults for any matching key
-  // (handles stored lists that pre-date the label field or that were saved in
-  // a different language).
+
+  // Keep only structurally valid questions (key, question text, at least one answer).
+  // If anything stored is malformed — e.g. from a failed earlier customization —
+  // we silently drop it so renderChips never receives undefined/empty answers.
+  const valid = custom.filter(
+    (q) => q && q.key && q.question && Array.isArray(q.answers) && q.answers.length > 0
+  );
+  if (!valid.length) return defaults;
+
+  // Back-fill labels from the current-language defaults for any matching key.
   const defaultLabels = new Map(defaults.map(q => [q.key, q.label]));
-  return custom.map(q => ({ ...q, label: q.label || defaultLabels.get(q.key) }));
+  return valid.map(q => ({ ...q, label: q.label || defaultLabels.get(q.key) }));
 }
 
 // ── Customization: pure list operations ───────────────────────────────────────
@@ -214,7 +221,7 @@ function applyCustomizationMarkers(text) {
 
     if (type === "CUSTOMIZE_RESET") {
       reset = true;
-      list = cloneQuestions(DEFAULT_TECH_SHEET_QUESTIONS);
+      list = cloneQuestions(getDefaultQuestions(currentLang));
       applied.push(t(currentLang, "customizeReset"));
       continue;
     }
