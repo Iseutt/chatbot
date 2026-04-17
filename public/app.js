@@ -18,7 +18,7 @@ let isLoading = false;
 
 // ── Technical sheet questionnaire ─────────────────────────────────────────────
 
-const DEFAULT_TECH_SHEET_QUESTIONS = [
+const DEFAULT_TECH_SHEET_QUESTIONS_FR = [
   {
     key: "moulure",
     label: "Nom de la moulure",
@@ -51,16 +51,55 @@ const DEFAULT_TECH_SHEET_QUESTIONS = [
   },
 ];
 
+const DEFAULT_TECH_SHEET_QUESTIONS_EN = [
+  {
+    key: "moulure",
+    label: "Profile name",
+    question: "Which profile would you like to use?",
+    answers: ["Double Liner", "3\" Corner", "4\" Corner", "45° Corner", "6\" Fascia"],
+  },
+  {
+    key: "materiau",
+    label: "Material type",
+    question: "Which material are you using?",
+    answers: ["Steel", "Aluminum"],
+  },
+  {
+    key: "calibre",
+    label: "Gauge",
+    question: "Which gauge would you like?",
+    answers: ["22", "24", "26"],
+  },
+  {
+    key: "couleur",
+    label: "Color",
+    question: "Which color do you want?",
+    answers: ["Black", "White", "Grey", "Brown"],
+  },
+  {
+    key: "vis",
+    label: "Screw type",
+    question: "Which type of screw are you using?",
+    answers: ["Self-drilling", "Colored screw", "Standard screw"],
+  },
+];
+
+function getDefaultQuestions(lang) {
+  return lang === "en" ? DEFAULT_TECH_SHEET_QUESTIONS_EN : DEFAULT_TECH_SHEET_QUESTIONS_FR;
+}
+
 function cloneQuestions(list) {
   return list.map((q) => ({ key: q.key, question: q.question, label: q.label, answers: [...q.answers] }));
 }
 
 function getQuestions() {
+  const defaults = getDefaultQuestions(currentLang);
   const custom = getCustomQuestions();
-  if (!custom || !custom.length) return DEFAULT_TECH_SHEET_QUESTIONS;
-  // Back-fill labels from defaults for any matching key (handles stored lists
-  // that pre-date the label field, and preserves custom labels if set).
-  const defaultLabels = new Map(DEFAULT_TECH_SHEET_QUESTIONS.map(q => [q.key, q.label]));
+  if (!custom || !custom.length) return defaults;
+  // Back-fill labels from the current-language defaults for any matching key
+  // (handles stored lists that pre-date the label field or that were saved in
+  // a different language).
+  const defaultLabels = new Map(defaults.map(q => [q.key, q.label]));
   return custom.map(q => ({ ...q, label: q.label || defaultLabels.get(q.key) }));
 }
 
