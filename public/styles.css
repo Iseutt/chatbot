@@ -74,19 +74,10 @@ h3 {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 0.5rem;
-  background: linear-gradient(
-    145deg,
-    var(--color-logo-accent),
-    var(--color-primary)
-  );
-  color: var(--color-text-on-red);
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: -0.02em;
+  background: #ffffff;
+  display: block;
+  object-fit: contain;
+  padding: 4px;
 }
 
 .brand-text h1 {
@@ -665,19 +656,10 @@ h3 {
   width: 5rem;
   height: 5rem;
   border-radius: 1rem;
-  background: linear-gradient(
-    145deg,
-    var(--color-logo-accent),
-    var(--color-primary)
-  );
-  color: var(--color-text-on-red);
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 1.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: -0.02em;
+  background: #ffffff;
+  display: block;
+  object-fit: contain;
+  padding: 8px;
 }
 
 .lp-empty p {
@@ -1178,15 +1160,10 @@ h3 {
   width: 32px;
   height: 32px;
   border-radius: 7px;
-  background: #1D9E75;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-heading);
-  font-size: 14px;
-  font-weight: 500;
-  color: #fff;
-  letter-spacing: 0.04em;
+  background: #ffffff;
+  display: block;
+  object-fit: contain;
+  padding: 3px;
   flex-shrink: 0;
 }
 .charte-company {

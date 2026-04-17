@@ -16,6 +16,24 @@ let thread = [];
 let currentLang = "fr";
 let isLoading = false;
 
+// Preload the company logo as a data-URL so jsPDF can embed it in the PDF.
+let _logoDataUrl = null;
+fetch("/logo-aj.png")
+  .then((r) => r.blob())
+  .then(
+    (blob) =>
+      new Promise((res) => {
+        const fr = new FileReader();
+        fr.onload = (e) => {
+          _logoDataUrl = e.target.result;
+          res();
+        };
+        fr.onerror = res; // ignore — fall back to geometric A
+        fr.readAsDataURL(blob);
+      })
+  )
+  .catch(() => {});
+
 // ── Technical sheet questionnaire ─────────────────────────────────────────────
 
 const DEFAULT_TECH_SHEET_QUESTIONS_FR = [
@@ -1044,20 +1062,20 @@ function drawTechSheetPage(doc, answers, sheetIndex) {
   const lx = m + 4;
   const ly = stripY + 4;
 
-  // Draw geometric "A" logo mark
-  const aW = 14, aH = 16;
-  doc.setDrawColor(...red);
-  doc.setLineWidth(1.5);
-  // Left leg: bottom-left → peak
-  doc.line(lx,           ly + aH, lx + aW / 2, ly);
-  // Right leg: bottom-right → peak
-  doc.line(lx + aW,      ly + aH, lx + aW / 2, ly);
-  // Crossbar at ~52% from bottom
-  doc.line(lx + aW * 0.22, ly + aH * 0.48, lx + aW * 0.78, ly + aH * 0.48);
-
-  // Reset draw state
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.4);
+  // Draw logo (real image or geometric fallback)
+  const aW = 18, aH = 18;
+  if (_logoDataUrl) {
+    doc.addImage(_logoDataUrl, "PNG", lx, ly, aW, aH);
+  } else {
+    // Geometric "A" fallback
+    doc.setDrawColor(...red);
+    doc.setLineWidth(1.5);
+    doc.line(lx,            ly + aH, lx + aW / 2, ly);
+    doc.line(lx + aW,       ly + aH, lx + aW / 2, ly);
+    doc.line(lx + aW * 0.22, ly + aH * 0.48, lx + aW * 0.78, ly + aH * 0.48);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.4);
+  }
 
   // Company name inline with the logo
   doc.setTextColor(...red);
