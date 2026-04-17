@@ -771,9 +771,11 @@ const _D = {
   ARR_W:   0.725,    // arrowhead half-width mm
 };
 
-// 180° arc via two bezier segments (jsPDF has no native arc method)
-// startDeg/endDeg in jsPDF screen degrees (0=right,90=down); antiCCW=true → CCW
-function _arc(doc, cx, cy, R, startDeg, endDeg, antiCCW) {
+// Adds a bezier-approximated 180° arc to the CURRENT PATH.
+// The current path point must already be at pt(startDeg) before calling.
+// Does NOT call moveTo or stroke — caller owns the full path lifecycle.
+// startDeg/endDeg in jsPDF screen degrees (0=right, 90=down); antiCCW=true → CCW
+function _arcPath(doc, cx, cy, R, startDeg, endDeg, antiCCW) {
   const KAPPA = 0.5522847498;
   const sign  = antiCCW ? -1 : 1;   // CW=+1, CCW=-1
 
@@ -785,9 +787,17 @@ function _arc(doc, cx, cy, R, startDeg, endDeg, antiCCW) {
   const [t0x, t0y] = tan(a0), [t1x, t1y] = tan(a1), [t2x, t2y] = tan(a2);
   const kr = KAPPA * R;
 
-  doc.moveTo(x0, y0);
   doc.curveTo(x0 + kr * t0x, y0 + kr * t0y, x1 - kr * t1x, y1 - kr * t1y, x1, y1);
   doc.curveTo(x1 + kr * t1x, y1 + kr * t1y, x2 - kr * t2x, y2 - kr * t2y, x2, y2);
+}
+
+// Standalone arc stroke (used only where an isolated arc is needed).
+function _arc(doc, cx, cy, R, startDeg, endDeg, antiCCW) {
+  const sign = antiCCW ? -1 : 1;
+  function pt(d) { const r = d * Math.PI / 180; return [cx + R * Math.cos(r), cy + R * Math.sin(r)]; }
+  const [sx, sy] = pt(startDeg);
+  doc.moveTo(sx, sy);
+  _arcPath(doc, cx, cy, R, startDeg, endDeg, antiCCW);
   doc.stroke();
 }
 
@@ -857,26 +867,26 @@ function _inchLabel(v) {
 // ── Liner double ──────────────────────────────────────────────────────────────
 function drawLiner(doc, CX, CY) {
   const S = _D.SCALE;
-  const radius   = (1 / 16) * S / 2;   // R_ARC
-  const spacing  = radius * 2;
-  const H_total  = 6.0 * S;
-  const V_total  = 0.75 * S;
+  const radius     = (1 / 16) * S / 2;   // R_ARC
+  const spacing    = radius * 2;
+  const H_total    = 6.0 * S;
+  const V_total    = 0.75 * S;
   const V_straight = Math.max(0, V_total - radius);
 
   const x_left = CX - H_total / 2, x_right = CX + H_total / 2;
-  const vxL = CX - spacing / 2,    vxR = CX + spacing / 2;
+  const vxL    = CX - spacing / 2,  vxR     = CX + spacing / 2;
   const y_base = CY, y_top_tan = y_base - V_straight;
   const y_ext  = y_top_tan - radius;   // bezier control point height
 
+  // Single continuous path — no gaps at arc junctions
   doc.setLineWidth(_D.THK);
-  doc.line(x_left, y_base, vxL, y_base);
-  doc.line(vxL, y_base, vxL, y_top_tan);
-  // top arc: bezier from vxL to vxR curving upward
-  doc.moveTo(vxL, y_top_tan);
-  doc.curveTo(vxL, y_ext, vxR, y_ext, vxR, y_top_tan);
+  doc.moveTo(x_left,  y_base);
+  doc.lineTo(vxL,     y_base);
+  doc.lineTo(vxL,     y_top_tan);
+  doc.curveTo(vxL, y_ext, vxR, y_ext, vxR, y_top_tan);  // top arc
+  doc.lineTo(vxR,     y_base);
+  doc.lineTo(x_right, y_base);
   doc.stroke();
-  doc.line(vxR, y_top_tan, vxR, y_base);
-  doc.line(vxR, y_base, x_right, y_base);
 
   // dimensions
   doc.setLineWidth(_D.THK);
@@ -918,19 +928,20 @@ function _drawCoinExterieur(doc, CX, CY, H4_in, H5_in, S) {
   const x10 = x9, y10 = y9 + H7;               // petit retour V (DOWN)
   const x11 = x10 + H8, y11 = y10;             // base H (RIGHT)
 
+  // Single continuous path — eliminates white gaps at arc junctions
   doc.setLineWidth(_D.THK);
-  doc.line(x0 - OV, y0,  x1 - OV, y1);
-  doc.line(x1 + OV, y1,  x2 - OV, y2);
-  doc.line(x2,      y2,  x3,      y3);
-  _arc(doc, cx1, cy1, R1, 0,   180, false);   // CW: right→below→left
-  doc.setLineWidth(_D.THK);
-  doc.line(x4, y4, x5, y5);
-  doc.line(x6 - OV, y6, x7 + OV, y7);
-  _arc(doc, cx2, cy2, R2, 270, 90,  false);   // CW: above→right→below
-  doc.setLineWidth(_D.THK);
-  doc.line(x8 + OV, y8,  x9 - OV, y9);
-  doc.line(x9,      y9,  x10,     y10);
-  doc.line(x10 - OV, y10, x11 + OV, y11);
+  doc.moveTo(x0,  y0);
+  doc.lineTo(x1,  y1);                                  // vertical up
+  doc.lineTo(x2,  y2);                                  // horizontal left
+  doc.lineTo(x3,  y3);                                  // vertical down → arc1 start
+  _arcPath(doc, cx1, cy1, R1, 0,   180, false);         // CW right→down→left → (x4,y4)
+  doc.lineTo(x5,  y5);                                  // vertical up
+  doc.lineTo(x7,  y7);                                  // horizontal right → arc2 start
+  _arcPath(doc, cx2, cy2, R2, 270, 90,  false);         // CW top→right→bottom → (x8,y8)
+  doc.lineTo(x9,  y9);                                  // horizontal left
+  doc.lineTo(x10, y10);                                 // vertical down
+  doc.lineTo(x11, y11);                                 // base right
+  doc.stroke();
 
   const offR = 25*ptm, offTop = 25*ptm, offS = 15*ptm, offL = 25*ptm;
   const offIn = 30*ptm, offBot = 45*ptm, offBotSm = 20*ptm;
@@ -978,13 +989,15 @@ function drawCoinExterieur45(doc, CX, CY) {
 
   const x_arc_diag = arc_cx + R * ux, y_arc_diag = arc_cy + R * uy;
 
+  // Single continuous path
   doc.setLineWidth(_D.THK);
-  doc.line(x0, y0, x1, y1);
-  doc.line(x1, y1, x2, y2);
-  _arc(doc, arc_cx, arc_cy, R, start_js, end_js, true);   // CCW 180°
-  doc.setLineWidth(_D.THK);
-  doc.line(x3, y3, x4, y4);
-  doc.line(x4, y4, x5, y5);
+  doc.moveTo(x0, y0);
+  doc.lineTo(x1, y1);                                           // horizontal baseline
+  doc.lineTo(x2, y2);                                           // diagonal → arc start
+  _arcPath(doc, arc_cx, arc_cy, R, start_js, end_js, true);    // CCW 180° → (x3,y3)
+  doc.lineTo(x4, y4);                                           // diagonal
+  doc.lineTo(x5, y5);                                           // vertical down
+  doc.stroke();
 
   _dimH(doc, x0, y0, x1, y1, y0 + 7.5, _inchLabel(2.0));
   _dimAligned(doc, x1, y1, x_arc_diag, y_arc_diag, -4.5, _inchLabel(0.75));
@@ -1009,13 +1022,14 @@ function drawFacia6(doc, CX, CY) {
   const y_arc_end = y1 - 2 * R;
   const x3 = x_right_ext - D3p, y3 = y_arc_end;
 
+  // Single continuous path
   doc.setLineWidth(_D.THK);
-  doc.line(x0, y0, x1, y1);
-  doc.line(x1 - OV, y1, x2 + OV, y2);
-  // arc from (x2,y1) CCW via right to (x2,y_arc_end): startDeg=90, endDeg=270, CCW
-  _arc(doc, cx3, cy3, R, 90, 270, true);
-  doc.setLineWidth(_D.THK);
-  if (x3 < x2) doc.line(x2 + OV, y_arc_end, x3 - OV, y3);
+  doc.moveTo(x0, y0);
+  doc.lineTo(x1, y1);                              // long vertical
+  doc.lineTo(x2, y2);                              // horizontal → arc start
+  _arcPath(doc, cx3, cy3, R, 90, 270, true);       // CCW semicircle → (x2, y_arc_end)
+  if (x3 < x2) doc.lineTo(x3, y3);                // short return horizontal
+  doc.stroke();
 
   _dimV(doc, x0,  y0,  x1,           y1,  x0 - 8.75,    _inchLabel(6.0));
   _dimH(doc, x1,  y1,  x_right_ext,  y1,  y1 + 11.25,   _inchLabel(1.25));
