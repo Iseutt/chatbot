@@ -897,7 +897,7 @@ function drawLiner(doc, CX, CY) {
 
 // ── Coin extérieur 3" / 4" (shared geometry, S = scale mm/inch) ───────────────
 function _drawCoinExterieur(doc, CX, CY, H4_in, H5_in, S) {
-  const R1 = (1 / 16) * S / 2, R2 = R1;
+  const R1 = 1.5, R2 = 1.5;   // fixed 1.5 mm — large enough to show a clear gap at THK=0.75 mm
   const OV = _D.OVSH;
   const ptm = S / 60;   // pt→mm scaling for dim offsets
 
@@ -962,7 +962,7 @@ function drawCoinExterieur4(doc, CX, CY) { _drawCoinExterieur(doc, CX, CY, 4.0, 
 // ── Coin extérieur 45° ────────────────────────────────────────────────────────
 function drawCoinExterieur45(doc, CX, CY) {
   const S = _D.SCALE;
-  const R = (1 / 16) * S / 2;
+  const R = 1.5;   // fixed 1.5 mm — visible gap at the bend
 
   const L1 = 2.0 * S, L2t = 0.75 * S, L3t = 0.75 * S, L4 = 2.0 * S;
 
@@ -1007,7 +1007,7 @@ function drawCoinExterieur45(doc, CX, CY) {
 // ── Facia 6" ─────────────────────────────────────────────────────────────────
 function drawFacia6(doc, CX, CY) {
   const S  = _D.SCALE;
-  const R  = 3 * (S / 60);   // 3 ReportLab pts converted to mm
+  const R  = 2.5;   // fixed 2.5 mm — visible end-curl (old formula gave only 0.75 mm = line width)
   const OV = _D.OVSH;
 
   const V1      = 6.0  * S;
