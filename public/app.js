@@ -479,17 +479,34 @@ function appendMessage(msg) {
   }
 
   messagesEl.appendChild(div);
-  scrollToBottom();
+  scrollToMessage(div);
   return div;
 }
 
 // ── Auto-scroll ───────────────────────────────────────────────────────────────
 
 function scrollToBottom() {
-  // requestAnimationFrame ensures the browser has finished layout before we
-  // measure scrollHeight, so the scroll always reaches the very last message.
   requestAnimationFrame(() => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
+
+// Smart scroll for new messages:
+// - If the message fits in the visible area → scroll to bottom (message + composer both visible)
+// - If the message is taller than the area → scroll so the TOP of the message is shown
+function scrollToMessage(el) {
+  requestAnimationFrame(() => {
+    const containerH = messagesEl.clientHeight;
+    const msgRect    = el.getBoundingClientRect();
+    const contRect   = messagesEl.getBoundingClientRect();
+
+    if (msgRect.height >= containerH) {
+      // Long message: bring its top to the top of the scroll area
+      messagesEl.scrollTop += msgRect.top - contRect.top;
+    } else {
+      // Short message: show the bottom so the composer stays in view
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
   });
 }
 
