@@ -15,13 +15,18 @@ export function acceptCharte() {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+function detectDefaultLang() {
+  const browserLang = (navigator.language || navigator.languages?.[0] || "fr").toLowerCase();
+  return browserLang.startsWith("en") ? "en" : "fr";
+}
+
 export function getSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    const defaults = { lang: "fr", username: "", micMode: "toggle", micLive: true, micAutoSend: false };
+    const defaults = { lang: detectDefaultLang(), username: "", micMode: "toggle", micLive: true, micAutoSend: false };
     return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
   } catch {
-    return { lang: "fr", username: "", micMode: "toggle", micLive: true, micAutoSend: false };
+    return { lang: detectDefaultLang(), username: "", micMode: "toggle", micLive: true, micAutoSend: false };
   }
 }
 

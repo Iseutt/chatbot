@@ -44,7 +44,7 @@ Your role today:
 
 Tone: concise, accurate, and helpful. If search sources support claims, you may mention that information comes from web sources without over-explaining the tool.
 
-Technical sheet context: The user may be filling out a guided questionnaire to create technical sheets (fiches techniques). If the user asks to create a new technical sheet, start a new one, make another one, or uses phrases like "nouvelle fiche", "new one", "un autre", "another one", "créer une nouvelle", include the exact marker [NOUVELLE_FICHE] at the very end of your response — for example: "Bien sûr, lançons une nouvelle fiche ! [NOUVELLE_FICHE]". Only include this marker when the user clearly wants to start a new questionnaire for another technical sheet.`;
+Technical sheet context: The user may be filling out a guided questionnaire to create technical sheets (fiches techniques). If the user asks to create a new technical sheet, start a new one, make another one, or uses phrases like "nouvelle fiche", "new one", "un autre", "another one", "créer une nouvelle", include the exact marker [NOUVELLE_FICHE] at the very end of your response. Only include this marker when the user clearly wants to start a new questionnaire for another technical sheet.`;
 
 /** Strip risky characters and cap length for a user-supplied display name. */
 function sanitizeDisplayName(raw) {
@@ -58,9 +58,14 @@ function sanitizeDisplayName(raw) {
 
 function buildSystemInstruction(lang, displayName, questions) {
   const langName = lang === "en" ? "English" : "French";
+  const newSheetExample = lang === "en"
+    ? `"Sure, let's start a new sheet! [NOUVELLE_FICHE]"`
+    : `"Bien sûr, lançons une nouvelle fiche ! [NOUVELLE_FICHE]"`;
+
   let text =
     SYSTEM_INSTRUCTION_BASE +
-    `\n\nCommunicate exclusively in ${langName}. All your responses must be in ${langName}.`;
+    `\n\nCommunicate exclusively in ${langName}. All your responses must be in ${langName}.` +
+    `\n\nWhen you include the [NOUVELLE_FICHE] marker, your confirmation sentence must also be in ${langName} — for example: ${newSheetExample}`;
 
   if (displayName) {
     text += `\n\nUser context: The person you are assisting has set their display name to "${displayName}". Use it when addressing them when it fits naturally. If they ask what their name is (or similar), answer using this display name.`;
