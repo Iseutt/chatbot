@@ -479,8 +479,18 @@ function appendMessage(msg) {
   }
 
   messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  scrollToBottom();
   return div;
+}
+
+// ── Auto-scroll ───────────────────────────────────────────────────────────────
+
+function scrollToBottom() {
+  // requestAnimationFrame ensures the browser has finished layout before we
+  // measure scrollHeight, so the scroll always reaches the very last message.
+  requestAnimationFrame(() => {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
 }
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
@@ -494,7 +504,7 @@ function showTyping() {
   dots.innerHTML = "<span></span><span></span><span></span>";
   div.appendChild(dots);
   messagesEl.appendChild(div);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  scrollToBottom();
 }
 
 function removeTyping() {
