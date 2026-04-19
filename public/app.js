@@ -492,21 +492,20 @@ function scrollToBottom() {
 }
 
 // Smart scroll for new messages:
-// - If the message fits in the visible area → scroll to bottom (message + composer both visible)
-// - If the message is taller than the area → scroll so the TOP of the message is shown
+// - Short message (fits on screen) → scroll to bottom so composer stays visible
+// - Long message (taller than the area) → scroll so the TOP is visible; user scrolls down to reply
 function scrollToMessage(el) {
+  // Double rAF: first frame commits the DOM, second frame has correct layout measurements.
   requestAnimationFrame(() => {
-    const containerH = messagesEl.clientHeight;
-    const msgRect    = el.getBoundingClientRect();
-    const contRect   = messagesEl.getBoundingClientRect();
-
-    if (msgRect.height >= containerH) {
-      // Long message: bring its top to the top of the scroll area
-      messagesEl.scrollTop += msgRect.top - contRect.top;
-    } else {
-      // Short message: show the bottom so the composer stays in view
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
+    requestAnimationFrame(() => {
+      if (el.offsetHeight >= messagesEl.clientHeight) {
+        // Long message — show the beginning
+        el.scrollIntoView({ block: "start" });
+      } else {
+        // Short message — show the bottom so composer is immediately reachable
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    });
   });
 }
 
